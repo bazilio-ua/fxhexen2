@@ -1,3 +1,22 @@
+/*
+Copyright (C) 1996-1997 Id Software, Inc.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
 // gl_mesh.c: triangle model functions
 
 #include "quakedef.h"
@@ -13,7 +32,7 @@ ALIAS MODEL DISPLAY LIST GENERATION
 model_t		*aliasmodel;
 aliashdr_t	*paliashdr;
 
-#define MAX_CMDS 16384 //8192
+#define MAX_CMDS 16384 // was 8192
 
 qboolean	used[MAX_CMDS];
 
@@ -27,24 +46,12 @@ int		numcommands;
 int		vertexorder[MAX_CMDS];
 int		numorder;
 
-#define MAX_STRIPS 256 //128
+#define MAX_STRIPS 256 // was 128
 
 int		stripverts[MAX_STRIPS];
 int		striptris[MAX_STRIPS];
 int		stripstverts[MAX_STRIPS];
 int		stripcount;
-
-static void ChkStrip (char *Function)
-{
-	if (stripcount + 2 >= MAX_STRIPS)
-		Sys_Error ("%s: too high stripcount (max = %d) in %s", Function, MAX_STRIPS - 2, aliasmodel->name);
-}
-
-static void ChkCmds (char *Function)
-{
-	if (numcommands >= MAX_CMDS)
-		Sys_Error ("%s: too many commands (max = %d) in %s", Function, MAX_CMDS, aliasmodel->name);
-}
 
 /*
 ================
@@ -115,7 +122,8 @@ nexttri:
 				st1 = check->stindex[ (k+2)%3 ];
 			}
 
-			ChkStrip ("StripLength");
+			if (stripcount + 2 >= MAX_STRIPS)
+				Host_Error ("StripLength: too high stripcount (max = %d) in %s", MAX_STRIPS - 2, aliasmodel->name);
 
 			stripverts[stripcount+2] = check->vertindex[ (k+2)%3 ];
 			stripstverts[stripcount+2] = check->stindex[ (k+2)%3 ];
@@ -198,7 +206,8 @@ nexttri:
 			m2 = check->vertindex[ (k+2)%3 ];
 			st2 = check->stindex[ (k+2)%3 ];
 
-			ChkStrip ("FanLength");
+			if (stripcount + 2 >= MAX_STRIPS)
+				Host_Error ("FanLength: too high stripcount (max = %d) in %s", MAX_STRIPS - 2, aliasmodel->name);
 
 			stripverts[stripcount+2] = m2;
 			stripstverts[stripcount+2] = st2;
@@ -287,7 +296,8 @@ void BuildTris (void)
 		for (j=0 ; j<bestlen ; j++)
 			used[besttris[j]] = 1;
 
-		ChkCmds ("BuildTris");
+		if (numcommands >= MAX_CMDS)
+			Host_Error ("BuildTris: too many commands (max = %d) in %s", MAX_CMDS, aliasmodel->name);
 
 		if (besttype == 1)
 			commands[numcommands++] = (bestlen+2);
@@ -310,28 +320,24 @@ void BuildTris (void)
 			s = (s + 0.5) / pheader->skinwidth;
 			t = (t + 0.5) / pheader->skinheight;
 
-			ChkCmds ("BuildTris");
+			if (numcommands >= MAX_CMDS)
+				Host_Error ("BuildTris: too many commands (max = %d) in %s", MAX_CMDS, aliasmodel->name);
 
 			*(float *)&commands[numcommands++] = s;
 			*(float *)&commands[numcommands++] = t;
 		}
 	}
 
-	ChkCmds ("BuildTris");
+	if (numcommands >= MAX_CMDS)
+		Host_Error ("BuildTris: too many commands (max = %d) in %s", MAX_CMDS, aliasmodel->name);
 
 	commands[numcommands++] = 0;		// end of list marker
 
-	// Check old limit
-	if (stripmax + 2 >= 128)
-	{
-		Con_Warning ("BuildTris: excessive stripcount (%d, normal max = %d) in %s\n", stripmax, 128 - 2, aliasmodel->name);
-	}
+	if (stripmax + 2 >= 128) // old limit warning
+		Con_DWarning ("BuildTris: stripcount exceeds standard limit (%d, normal max = %d) in %s\n", stripmax, 128 - 2, aliasmodel->name);
 
-	// Check old limit
-	if (numcommands >= 8192)
-	{
-		Con_Warning ("BuildTris: excessive commands (%d, normal max = %d) in %s\n", numcommands, 8192, aliasmodel->name);
-	}
+	if (numcommands >= 8192) // old limit warning
+		Con_DWarning ("BuildTris: commands exceeds standard limit (%d, normal max = %d) in %s\n", numcommands, 8192, aliasmodel->name);
 }
 
 
@@ -369,7 +375,7 @@ void R_MakeAliasModelDisplayLists (model_t *m, aliashdr_t *hdr)
 		for (j=0 ; j<numorder ; j++)
 		{
 			if (vertexorder[j] < 0 || vertexorder[j] >= MAXALIASVERTS)
-				Sys_Error ("R_MakeAliasModelDisplayLists: invalid vertexorder[%d] (%d, max = %d) in %s", j, vertexorder[j], MAXALIASVERTS, m->name);
+				Host_Error ("R_MakeAliasModelDisplayLists: invalid vertexorder[%d] (%d, max = %d) in %s", j, vertexorder[j], MAXALIASVERTS, m->name);
 
 			*verts++ = poseverts[i][vertexorder[j]];
 		}

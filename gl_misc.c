@@ -406,6 +406,7 @@ void R_NewMap (void)
 		cl.worldmodel->leafs[i].efrags = NULL;
 		 	
 	r_viewleaf = NULL;
+
 	R_ClearParticles ();
 
 	R_BuildLightmaps ();

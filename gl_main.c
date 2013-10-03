@@ -108,6 +108,11 @@ qboolean R_CullBox (vec3_t mins, vec3_t maxs)
 }
 
 
+/*
+=================
+R_RotateForEntity
+=================
+*/
 void R_RotateForEntity (entity_t *e)
 {
     glTranslatef (e->origin[0],  e->origin[1],  e->origin[2]);
@@ -180,6 +185,7 @@ static void R_RotateForEntity2(entity_t *e)
 		{
 			glRotatef(e->angles[1], 0, 0, 1);
 		}
+
 		glRotatef(-e->angles[0], 0, 1, 0);
 		glRotatef(-e->angles[2], 1, 0, 0);
 	}
@@ -268,28 +274,6 @@ void R_DrawSpriteModel (entity_t *e)
 	psprite = currententity->model->cache.data;
 
 	frame = R_GetSpriteFrame (psprite);
-
-	if (currententity->drawflags & DRF_TRANSLUCENT)
-	{
-		// rjr
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable( GL_BLEND );
-		glColor4f (1,1,1,r_wateralpha.value);
-	}
-	else if (currententity->model->flags & EF_TRANSPARENT)
-	{
-		// rjr
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable( GL_BLEND );
-		glColor3f(1,1,1);
-	}
-	else
-	{
-		// rjr
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable( GL_BLEND );
-		glColor3f(1,1,1);
-	}
 
 	if (psprite->type == SPR_FACING_UPRIGHT)
 	{
@@ -389,6 +373,35 @@ void R_DrawSpriteModel (entity_t *e)
 
 //	R_RotateSprite (psprite->beamlength);
 
+
+	if ((currententity->drawflags & DRF_TRANSLUCENT) || (currententity->model->flags & EF_TRANSPARENT))
+	{
+/*		// rjr
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable( GL_BLEND );
+		glColor4f (1,1,1,r_wateralpha.value);
+*/
+		glDisable(GL_ALPHA_TEST);
+		glEnable(GL_BLEND);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glColor4f(1.0f, 1.0f, 1.0f, r_wateralpha.value);
+	}
+/*	else if ()
+	{
+		// rjr
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable( GL_BLEND );
+		glColor3f(1,1,1);
+	}
+*/	else
+	{
+		// rjr
+		//glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable( GL_BLEND );
+		glColor3f(1,1,1);
+	}
+
+
 	GL_Bind(frame->gltexture);
 
 	glBegin (GL_QUADS);
@@ -422,7 +435,18 @@ void R_DrawSpriteModel (entity_t *e)
 //	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 //	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	glDisable( GL_BLEND );
+//	glDisable( GL_BLEND );
+
+
+	if ((currententity->drawflags & DRF_TRANSLUCENT) || (currententity->model->flags & EF_TRANSPARENT))
+	{
+		glDisable( GL_BLEND );
+		glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	}
+	else
+	{
+		glDisable( GL_BLEND );
+	}
 }
 
 /*

@@ -9,7 +9,6 @@
 
 #include "quakedef.h"
 
-//extern qboolean	vid_initialized;
 
 model_t	*loadmodel;
 char	loadname[32];	// for hunk tags
@@ -268,20 +267,21 @@ model_t *Mod_LoadModel (model_t *mod, qboolean crash)
 	
 	switch (LittleLong(*(unsigned *)buf))
 	{
-	case RAPOLYHEADER:
-		Mod_LoadAliasModelNew (mod, buf);
-		break;
-	case IDPOLYHEADER:
-		Mod_LoadAliasModel (mod, buf);
-		break;
-
-	case IDSPRITEHEADER:
-		Mod_LoadSpriteModel (mod, buf);
-		break;
+		case RAPOLYHEADER:
+			Mod_LoadAliasModelNew (mod, buf);
+			break;
 	
-	default:
-		Mod_LoadBrushModel (mod, buf);
-		break;
+		case IDPOLYHEADER:
+			Mod_LoadAliasModel (mod, buf);
+			break;
+	
+		case IDSPRITEHEADER:
+			Mod_LoadSpriteModel (mod, buf);
+			break;
+		
+		default:
+			Mod_LoadBrushModel (mod, buf);
+			break;
 	}
 
 	return mod;
@@ -388,7 +388,8 @@ void Mod_LoadTextures (lump_t *l)
 				R_InitSky (tx);
 			else
 			{
-				texture_mode = GL_LINEAR_MIPMAP_NEAREST; //_LINEAR;
+				//texture_mode = GL_LINEAR_MIPMAP_NEAREST; //_LINEAR;
+				texture_mode = GL_LINEAR;
 				tx->gltexture = GL_LoadTexture (mt->name, tx->width, tx->height, (byte *)(tx+1), false, false, 0);//mipmap was true
 				texture_mode = GL_LINEAR;
 			}
@@ -699,6 +700,7 @@ CalcSurfaceExtents
 Fills in s->texturemins[] and s->extents[]
 ================
 */
+#define MAX_SURF_EXTENTS 2048 // was 512 in glquake, 256 in winquake, fitzquake has 2000
 void CalcSurfaceExtents (msurface_t *s)
 {
 	float	mins[2], maxs[2], val;
@@ -708,7 +710,7 @@ void CalcSurfaceExtents (msurface_t *s)
 	int		bmins[2], bmaxs[2];
 
 	mins[0] = mins[1] = 999999;
-	maxs[0] = maxs[1] = -99999;
+	maxs[0] = maxs[1] = -999999;
 
 	tex = s->texinfo;
 	
@@ -1894,8 +1896,7 @@ void Mod_LoadAliasModelNew (model_t *mod, void *buffer)
 	//
 	// build the draw lists
 	//
-//	if (vid_initialized)
-		R_MakeAliasModelDisplayLists (mod, pheader);
+	R_MakeAliasModelDisplayLists (mod, pheader);
 
 //
 // move the complete, relocatable alias model to the cache
@@ -2073,8 +2074,8 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	//
 	// build the draw lists
 	//
-//	if (vid_initialized)
-		R_MakeAliasModelDisplayLists (mod, pheader);
+	R_MakeAliasModelDisplayLists (mod, pheader);
+
 //
 // move the complete, relocatable alias model to the cache
 //	
@@ -2097,7 +2098,7 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 Mod_LoadSpriteFrame
 =================
 */
-void * Mod_LoadSpriteFrame (/*model_t *mod,*/  void * pin, mspriteframe_t **ppframe, int framenum)
+void * Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
 {
 	dspriteframe_t		*pinframe;
 	mspriteframe_t		*pspriteframe;
@@ -2140,7 +2141,7 @@ void * Mod_LoadSpriteFrame (/*model_t *mod,*/  void * pin, mspriteframe_t **ppfr
 Mod_LoadSpriteGroup
 =================
 */
-void * Mod_LoadSpriteGroup (/*model_t *mod,*/ void * pin, mspriteframe_t **ppframe, int framenum)
+void * Mod_LoadSpriteGroup (void *pin, mspriteframe_t **ppframe, int framenum)
 {
 	dspritegroup_t		*pingroup;
 	mspritegroup_t		*pspritegroup;
@@ -2180,7 +2181,7 @@ void * Mod_LoadSpriteGroup (/*model_t *mod,*/ void * pin, mspriteframe_t **ppfra
 
 	for (i=0 ; i<numframes ; i++)
 	{
-		ptemp = Mod_LoadSpriteFrame (/*mod,*/ ptemp, &pspritegroup->frames[i], framenum * 100 + i);
+		ptemp = Mod_LoadSpriteFrame ( ptemp, &pspritegroup->frames[i], framenum * 100 + i);
 	}
 
 	return ptemp;
@@ -2249,13 +2250,13 @@ void Mod_LoadSpriteModel (model_t *mod, void *buffer)
 		if (frametype == SPR_SINGLE)
 		{
 			pframetype = (dspriteframetype_t *)
-					Mod_LoadSpriteFrame (/*mod,*/ pframetype + 1,
+					Mod_LoadSpriteFrame ( pframetype + 1,
 										 &psprite->frames[i].frameptr, i);
 		}
 		else
 		{
 			pframetype = (dspriteframetype_t *)
-					Mod_LoadSpriteGroup (/*mod,*/ pframetype + 1,
+					Mod_LoadSpriteGroup ( pframetype + 1,
 										 &psprite->frames[i].frameptr, i);
 		}
 	}
@@ -2282,90 +2283,3 @@ void Mod_Print (void)
 	}
 }
 
-
-/*
- * $Log: /H2 Mission Pack/gl_model.c $
- * 
- * 11    3/16/98 4:38p Jmonroe
- * 
- * 10    3/12/98 1:12p Jmonroe
- * removed strcmp from render code
- * 
- * 9     3/11/98 6:25p Jmonroe
- * 
- * 8     3/11/98 3:29p Jmonroe
- * 
- * 7     3/11/98 12:10p Jmonroe
- * first pass at new model fmt in GL , s and t are not correct
- * 
- * 6     3/10/98 11:40a Jmonroe
- * 
- * 5     3/01/98 8:20p Jmonroe
- * removed the slow "quake" version of common functions
- * 
- * 4     2/27/98 3:54p Jmonroe
- * changed hull 4 size
- * 
- * 3     2/04/98 12:53a Jmonroe
- * added fabs
- * 
- * 2     1/18/98 8:05p Jmonroe
- * all of rick's patch code is in now
- * 
- * 21    10/28/97 2:58p Jheitzman
- * 
- * 19    9/23/97 9:47p Rjohnson
- * Fix for dedicated gl server and color maps for sheeps
- * 
- * 18    9/11/97 2:56p Rjohnson
- * Player color changes
- * 
- * 17    9/04/97 4:44p Rjohnson
- * Updates
- * 
- * 16    8/31/97 9:27p Rjohnson
- * GL Updates
- * 
- * 15    8/29/97 4:48p Rjohnson
- * Changed hull dimmensions
- * 
- * 14    8/29/97 2:49p Rjohnson
- * Clipping hull change
- * 
- * 13    8/19/97 7:51p Rjohnson
- * Fix for models disappearing
- * 
- * 12    8/17/97 4:14p Rjohnson
- * Fix for model lighting
- * 
- * 11    6/16/97 5:28a Rjohnson
- * Minor fixes
- * 
- * 10    6/16/97 3:13a Rjohnson
- * Fixes for: allocating less memory, models clipping out, and plaques in
- * gl version
- * 
- * 9     6/02/97 3:42p Gmctaggart
- * GL Catchup
- * 
- * 8     5/31/97 11:12a Rjohnson
- * GL Updates
- * 
- * 7     5/15/97 6:34p Rjohnson
- * Code Cleanup
- * 
- * 6     5/13/97 10:31a Rjohnson
- * Added the clipping hull reading for the gl version
- * 
- * 5     3/13/97 10:52p Rjohnson
- * Added support for transparent sprites
- * 
- * 4     3/07/97 2:06p Rjohnson
- * Small Fix
- * 
- * 3     3/07/97 1:06p Rjohnson
- * Id Updates
- * 
- * 2     2/20/97 12:13p Rjohnson
- * Code fixes for id update
- */

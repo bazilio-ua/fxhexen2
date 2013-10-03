@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern int ColorIndex[16];
 extern unsigned ColorPercent[16];
-//extern qboolean	vid_initialized;
 
 #define MAX_DISC 18
 
@@ -47,8 +46,6 @@ int			char_texture;
 int			char_smalltexture;
 int			char_menufonttexture;
 
-byte		conback_buffer[sizeof(qpic_t) + sizeof(glpic_t)];
-qpic_t		*conback = (qpic_t *)&conback_buffer;
 
 int		indexed_bytes = 1;
 int		rgba_bytes = 4;
@@ -115,6 +112,10 @@ qboolean gl_texture_env_combine = false;
 qboolean gl_texture_env_add = false;
 qboolean gl_swap_control = false;
 
+
+int		texture_mode = GL_LINEAR;
+
+int		texture_extension_number = 1;
 /*
 ================================================
 
@@ -129,41 +130,9 @@ qboolean gl_swap_control = false;
 GL_CheckExtensions
 ===============
 */
-/*void CheckTextureExtensions (void)
-{
-	HINSTANCE	hInstGL;
 
-	if (  COM_CheckParm ("-gl11") )
-	{
-		hInstGL = LoadLibrary("opengl32.dll");
-		
-		if (hInstGL == NULL)
-			Sys_Error ("Couldn't load opengl32.dll\n");
 
-		bindTexFunc = (void *)GetProcAddress(hInstGL,"glBindTexture");
 
-		if (!bindTexFunc)
-			Sys_Error ("No texture objects!");
-		return;
-	}
-
-// load library and get procedure adresses for texture extension API /
-	if ((bindTexFunc = (BINDTEXFUNCPTR)
-		wglGetProcAddress((LPCSTR) "glBindTextureEXT")) == NULL)
-	{
-		Sys_Error ("GetProcAddress for BindTextureEXT failed");
-		return;
-	}
-}*/
-
-//int		texture_mode = GL_NEAREST;
-//int		texture_mode = GL_NEAREST_MIPMAP_NEAREST;
-//int		texture_mode = GL_NEAREST_MIPMAP_LINEAR;
-int		texture_mode = GL_LINEAR;
-//int		texture_mode = GL_LINEAR_MIPMAP_NEAREST;
-//int		texture_mode = GL_LINEAR_MIPMAP_LINEAR;
-
-int		texture_extension_number = 1;
 /*
 ===============
 GL_SetupState
@@ -217,7 +186,7 @@ void GL_Init (void)
 	gl_extensions = glGetString (GL_EXTENSIONS);
 	Con_Printf ("GL_EXTENSIONS: %s\n", gl_extensions);
 
-//	CheckTextureExtensions ();
+
 
 	GL_SetupState ();
 }
@@ -427,7 +396,7 @@ qpic_t	*Draw_CachePic (char *path)
 			return &pic->pic;
 
 	if (menu_numcachepics == MAX_CACHED_PICS)
-		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS");
+		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS (%d)", MAX_CACHED_PICS);
 	menu_numcachepics++;
 	strcpy (pic->name, path);
 
@@ -464,10 +433,6 @@ qpic_t	*Draw_CachePic (char *path)
 	gl->tl = 0;
 	gl->th = 1;
 
-	// point sample status bar
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
 	return &pic->pic;
 }
 
@@ -487,14 +452,11 @@ qpic_t *Draw_CachePicNoTrans(char *path)
 	glpic_t         *gl;
 
 	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
-	{
 		if (!strcmp (path, pic->name))
 			return &pic->pic;
-	}
 
 	if (menu_numcachepics == MAX_CACHED_PICS)
-		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS");
-
+		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS (%d)", MAX_CACHED_PICS);
 	menu_numcachepics++;
 	strcpy (pic->name, path);
 
@@ -504,13 +466,10 @@ qpic_t *Draw_CachePicNoTrans(char *path)
 	dat = (qpic_t *)COM_LoadTempFile (path, NULL);
 	if (!dat)
 		Sys_Error ("Draw_CachePicNoTrans: failed to load %s", path);
-
 	SwapPic (dat);
 
 	pic->pic.width = dat->width;
 	pic->pic.height = dat->height;
-
-	gl = (glpic_t *)pic->pic.data;
 
 	// Get rid of transparencies
 	for (i = 0; i < dat->width * dat->height; i++)
@@ -519,40 +478,14 @@ qpic_t *Draw_CachePicNoTrans(char *path)
 			dat->data[i] = 31; // pal(31) == pal(255) == FCFCFC (white)
 	}
 
+	gl = (glpic_t *)pic->pic.data;
 	gl->gltexture = GL_LoadTexture (path, dat->width, dat->height, dat->data, false, true, 0);
 	gl->sl = 0;
 	gl->sh = 1;
 	gl->tl = 0;
 	gl->th = 1;
 
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
 	return &pic->pic;
-}
-
-void Draw_CharToConback (int num, byte *dest)
-{
-	int		row, col;
-	byte	*source;
-	int		drawline;
-	int		x;
-
-	row = num>>5;
-	col = num&31;
-	source = draw_chars + (row<<11) + (col<<3);
-
-	drawline = 8;
-
-	while (drawline--)
-	{
-		for (x=0 ; x<8 ; x++)
-			if (source[x] != 255)
-				dest[x] = 0x60 + source[x];
-		source += 256;
-		dest += 320;
-	}
-
 }
 
 
@@ -627,22 +560,21 @@ void Pics_Upload (void)
 	char temp[MAX_QPATH];
 
 
-	// load the console background and the charset
-	// by hand, because we need to write the version
-	// string into the background before turning
-	// it into a texture
+	//
+	// load console charset
+	//
 	//draw_chars = W_GetLumpName ("conchars");
 	draw_chars = COM_LoadHunkFile ("gfx/menu/conchars.lmp", NULL);
 	for (i=0 ; i<256*128 ; i++)
 		if (draw_chars[i] == 0)
 			draw_chars[i] = 255;	// proper transparent color
 
+	// now turn them into textures
 	char_texture = GL_LoadTexture ("charset", 256, 128, draw_chars, false, true, 0);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	//
-	
+	// load sbar small font
+	//
 	draw_smallchars = W_GetLumpName("tinyfont");
 	for (i=0 ; i<128*32 ; i++)
 		if (draw_smallchars[i] == 0)
@@ -650,35 +582,29 @@ void Pics_Upload (void)
 
 	// now turn them into textures
 	char_smalltexture = GL_LoadTexture ("smallcharset", 128, 32, draw_smallchars, false, true, 0);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	//
-	
-	mf = (qpic_t *)COM_LoadTempFile("gfx/menu/bigfont2.lmp", NULL);
+	// load menu big font
+	//
 //	mf = (qpic_t *)COM_LoadTempFile("gfx/menu/bigfont.lmp", NULL);
+	mf = (qpic_t *)COM_LoadTempFile("gfx/menu/bigfont2.lmp", NULL);
 	for (i=0 ; i<160*80 ; i++)
 		if (mf->data[i] == 0)
 			mf->data[i] = 255;	// proper transparent color
 
+	// now turn them into textures
 	char_menufonttexture = GL_LoadTexture ("menufont", 160, 80, mf->data, false, true, 0);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_mag);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_mag);
-
-	//
 	
 	//
 	// get the other pics we need
 	//
+//	draw_disc = Draw_PicFromWad ("disc");
 	for(i=MAX_DISC-1 ; i>=0 ; i--)
 	{
 		sprintf(temp, "gfx/menu/skull%d.lmp", i);
 		draw_disc[i] = Draw_PicFromFile (temp);
 	}
 
-//	draw_disc = Draw_PicFromWad ("disc");
 //	draw_backtile = Draw_PicFromWad ("backtile");
 	draw_backtile = Draw_PicFromFile ("gfx/menu/backtile.lmp");
 
@@ -815,6 +741,38 @@ void Draw_String (int x, int y, char *str)
 }
 
 
+/*
+=============
+Draw_AlphaPic
+=============
+*/
+void Draw_AlphaPic (int x, int y, qpic_t *pic, float alpha)
+{
+	glpic_t			*gl;
+
+	if (scrap_dirty)
+		Scrap_Upload ();
+
+	gl = (glpic_t *)pic->data;
+
+	glDisable (GL_ALPHA_TEST);
+	glEnable (GL_BLEND);
+	glColor4f (1,1,1,alpha);
+	GL_Bind (gl->gltexture);
+	glBegin (GL_QUADS);
+	glTexCoord2f (gl->sl, gl->tl);
+	glVertex2f (x, y);
+	glTexCoord2f (gl->sh, gl->tl);
+	glVertex2f (x+pic->width, y);
+	glTexCoord2f (gl->sh, gl->th);
+	glVertex2f (x+pic->width, y+pic->height);
+	glTexCoord2f (gl->sl, gl->th);
+	glVertex2f (x, y+pic->height);
+	glEnd ();
+	glColor4f (1,1,1,1);
+	glEnable (GL_ALPHA_TEST);
+	glDisable (GL_BLEND);
+}
 
 
 /*
@@ -948,8 +906,6 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glColor4f (1,1,1,1);
 	GL_Bind (gl->gltexture);
 
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
 	glBegin (GL_QUADS);
 	glTexCoord2f (gl->sl, gl->tl);
@@ -965,8 +921,6 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glEnable (GL_ALPHA_TEST); //FX new
 	glDisable (GL_BLEND); //FX
 
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
 /*
@@ -988,8 +942,6 @@ void Draw_IntermissionPic (qpic_t *pic)
 	glColor4f (1,1,1,1);
 	GL_Bind (gl->gltexture);
 	
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	
 	glBegin(GL_QUADS);
 	glTexCoord2f(0.0f, 0.0f);
@@ -1005,8 +957,6 @@ void Draw_IntermissionPic (qpic_t *pic)
 	glEnable (GL_ALPHA_TEST); //FX new
 	glDisable (GL_BLEND); //FX
 
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
 void Draw_PicCropped(int x, int y, qpic_t *pic)
@@ -1220,38 +1170,24 @@ Draw_ConsoleBackground
 */
 void Draw_ConsoleBackground (int lines)
 {
-	qpic_t	*cb;
-	byte	*dest;
-	int		x, y;
-	char	ver[40];
-	glpic_t *gl;
+	qpic_t *pic;
+	int y;
+	float alpha;
 
+	pic = Draw_CachePic ("gfx/menu/conback.lmp");
+	pic->width = vid.width;
+	pic->height = vid.height;
 
-	cb = (qpic_t *)COM_LoadTempFile ("gfx/menu/conback.lmp", NULL);
-	if (!cb)
-		Sys_Error ("Couldn't load gfx/menu/conback.lmp");
-	SwapPic (cb);
+//	alpha = (con_forcedup) ? 1.0 : CLAMP(0.0, scr_conalpha.value, 1.0);
+	alpha = 1.0;
 
-	// hack the version number directly into the pic
-	dest = cb->data + 320 - 43 + 320*186;
-	sprintf (ver, "%4.2f", VERSION);
+	y = (vid.height * 3) >> 2;
 
-
-	y = strlen(ver);
-	for (x=0 ; x<y ; x++)
-		Draw_CharToConback (ver[x], dest+(x<<3));
-
-	gl = (glpic_t *)conback->data;
-	gl->gltexture = GL_LoadTexture ("conback", cb->width, cb->height, cb->data, false, false, 0);
-	gl->sl = 0;
-	gl->sh = 1;
-	gl->tl = 0;
-	gl->th = 1;
-	conback->width = vid.conwidth;
-	conback->height = vid.conheight;
-
-
-	Draw_Pic (0, lines-vid.height, conback);
+	if (lines > y)
+		Draw_Pic(0, lines - vid.height, pic);
+	else
+//		Draw_AlphaPic (0, lines - vid.height, pic, (float)(2 * alpha * lines)/y); //alpha depend on height console
+		Draw_AlphaPic (0, lines - vid.height, pic, alpha);
 }
 
 
@@ -1908,8 +1844,6 @@ void D_ShowLoadingSize (void)
 	int cur_perc;
 	static int prev_perc; 
 	
-//	if (!vid_initialized)
-//		return;
 	if (cls.state == ca_dedicated)
 		return;				// stdout only
 
