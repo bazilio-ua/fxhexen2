@@ -2463,8 +2463,8 @@ gltexture_t *GL_LoadTexture (model_t *owner, char *name, int width, int height, 
 	// cache check
 	crc = CRC_Block(data, size);
 
-//	if ((flags ^ TEXPREF_OVERWRITE) && (glt = GL_FindTexture (owner, name)))
-	if ((flags & TEXPREF_OVERWRITE) && (glt = GL_FindTexture (owner, name))) 
+	if ((flags ^ TEXPREF_OVERWRITE) && (glt = GL_FindTexture (owner, name)))
+//	if ((flags & TEXPREF_OVERWRITE) && (glt = GL_FindTexture (owner, name))) 
 	{
 		if (glt->source_crc == crc)
 			return glt;

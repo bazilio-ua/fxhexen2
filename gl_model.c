@@ -689,7 +689,7 @@ void Mod_LoadTexinfo (lump_t *l)
 	
 		if (!loadmodel->textures)
 		{
-			out->texture = r_notexture_mip;	// checkerboard texture
+			out->texture = notexture_mip;	// checkerboard texture
 			out->flags = 0;
 		}
 		else
@@ -699,7 +699,7 @@ void Mod_LoadTexinfo (lump_t *l)
 			out->texture = loadmodel->textures[miptex];
 			if (!out->texture)
 			{
-				out->texture = r_notexture_mip; // texture not found
+				out->texture = notexture_mip; // texture not found
 				out->flags = 0;
 			}
 		}
@@ -1661,20 +1661,11 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags
 
 //		sprintf (name, "%s_%i", loadmodel->name, i);
 		if( mdl_flags & EF_HOLEY )
-		{
 			texture_mode = TEXPREF_TRANSMODE2; // was 2
-			Con_Warning("TEXPREF_TRANSMODE2 - EF_HOLEY - mode 2\n");
-		}
 		else if( mdl_flags & EF_TRANSPARENT )
-		{
 			texture_mode = TEXPREF_TRANSMODE1; // was 1
-			Con_Warning("TEXPREF_TRANSMODE1 - EF_TRANSPARENT - mode 1\n");
-		}
 		else if( mdl_flags & EF_SPECIAL_TRANS )
-		{
 			texture_mode = TEXPREF_TRANSMODE3; // was 3
-			Con_Warning("TEXPREF_TRANSMODE3 - EF_SPECIAL_TRANS - mode 3\n");
-		}
 		else
 			texture_mode = TEXPREF_NONE; // 0
 
