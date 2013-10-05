@@ -21,6 +21,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
+texture_t	*notexture_mip; // moved here from gl_main.c 
+texture_t	*notexture_mip2; // used for non-lightmapped surfs with a missing texture
+
 byte *playerTranslation;
 
 /*
@@ -30,7 +33,16 @@ R_InitTextures
 */
 void	R_InitTextures (void)
 {
-	int		x,y, m;
+	// create a simple checkerboard texture for the default (notexture miptex)
+	notexture_mip = Hunk_AllocName (sizeof(texture_t), "notexture_mip");
+	strcpy (notexture_mip->name, "notexture");
+	notexture_mip->height = notexture_mip->width = 16;
+
+	notexture_mip2 = Hunk_AllocName (sizeof(texture_t), "notexture_mip2");
+	strcpy (notexture_mip2->name, "notexture2");
+	notexture_mip2->height = notexture_mip2->width = 16;
+
+/*	int		x,y, m;
 	byte	*dest;
 
 // create a simple checkerboard texture for the default
@@ -54,6 +66,7 @@ void	R_InitTextures (void)
 					*dest++ = 0xff;
 			}
 	}	
+*/
 }
 
 
@@ -192,7 +205,7 @@ R_Init
 void R_Init (void)
 {	
 	extern byte *hunk_base;
-	int counter;
+//	int counter;
 
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);	
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);	
@@ -228,12 +241,12 @@ void R_Init (void)
 
 	R_InitTranslatePlayerTextures ();
 
-	playertextures = texture_extension_number;
-	texture_extension_number += MAX_SCOREBOARD; //16
-
+//	playertextures = texture_extension_number;
+//	texture_extension_number += MAX_SCOREBOARD; //16
+/*
 	for(counter=0;counter<MAX_EXTRA_TEXTURES;counter++)
 		gl_extra_textures[counter] = -1;
-
+*/
 	playerTranslation = (byte *)COM_LoadHunkFile ("gfx/player.lmp", NULL);
 	if (!playerTranslation)
 		Sys_Error ("Couldn't load gfx/player.lmp");
@@ -375,9 +388,12 @@ skip:
 	original = pixels;
 
 	// do it fast and correct.
-	GL_Bind(playertextures + playernum);
+//	GL_Bind(playertextures + playernum);
+//	GL_Upload8 (name, original, paliashdr->skinwidth, paliashdr->skinheight, false, false, 0); 
 
-	GL_Upload8 (name, original, paliashdr->skinwidth, paliashdr->skinheight, false, false, 0); 
+	//upload new image
+	playertextures[playernum] = GL_LoadTexture (currententity->model, name, paliashdr->skinwidth, paliashdr->skinheight, SRC_INDEXED, original, "", (unsigned)original, TEXPREF_PAD | TEXPREF_OVERWRITE);
+
 
 	// free allocated memory
 	free (pixels);

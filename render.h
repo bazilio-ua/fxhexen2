@@ -20,10 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // refresh.h -- public interface to refresh functions
 
-/*
- * $Header: /H2 Mission Pack/RENDER.H 4     3/05/98 7:54p Jmonroe $
- */
-
 #define	MAXCLIPPLANES	11
 
 #define	TOP_RANGE		16			// soldier uniform colors
@@ -39,6 +35,42 @@ typedef struct efrag_s
 	struct efrag_s		*entnext;
 } efrag_t;
 
+//johnfitz -- for lerping
+#define LERP_MOVESTEP	(1<<0) //this is a MOVETYPE_STEP entity, enable movement lerp
+#define LERP_RESETANIM	(1<<1) //disable anim lerping until next anim frame
+#define LERP_RESETANIM2	(1<<2) //set this and previous flag to disable anim lerping for two anim frames (UNUSED)
+#define LERP_RESETMOVE	(1<<3) //disable movement lerping until next origin/angles change
+#define LERP_FINISH		(1<<4) //use lerpfinish time from server update instead of assuming interval of 0.1
+//johnfitz
+
+//johnfitz -- struct for passing lerp information to drawing functions
+typedef struct {
+	short pose1;
+	short pose2;
+	float blend;
+	vec3_t origin;
+	vec3_t angles;
+} lerpdata_t;
+//johnfitz
+
+// Baker change (RMQ Engine)
+typedef struct glmatrix_s
+{
+	union
+	{
+		// put first because gcc barfs a little
+		float m16[16];
+		float m4x4[4][4];
+
+		struct
+		{
+			float _11, _12, _13, _14;
+			float _21, _22, _23, _24;
+			float _31, _32, _33, _34;
+			float _41, _42, _43, _44;
+		};
+	};
+} glmatrix_t;
 
 typedef struct entity_s
 {
@@ -115,8 +147,10 @@ typedef struct
 extern	refdef_t	r_refdef;
 extern vec3_t	r_origin, vpn, vright, vup;
 
-extern	struct texture_s	*r_notexture_mip;
+extern	struct texture_s	*notexture_mip;
+extern	struct texture_s	*notexture_mip2;
 
+extern	entity_t r_worldentity;
 
 void R_Init (void);
 void R_InitTextures (void);
@@ -158,38 +192,3 @@ void R_TeleportSplash (vec3_t org);
 void R_PushDlights (void);
 
 
-
-/*
- * $Log: /H2 Mission Pack/RENDER.H $
- * 
- * 4     3/05/98 7:54p Jmonroe
- * fixed startRain, optimized particle struct
- * 
- * 15    8/29/97 2:49p Rjohnson
- * Network updates
- * 
- * 14    8/17/97 3:28p Rjohnson
- * Fix for color selection
- * 
- * 13    7/28/97 2:44p Rjohnson
- * Fix for tinting
- * 
- * 12    7/24/97 4:37p Rjohnson
- * Color Tinting for models
- * 
- * 11    5/23/97 12:23p Bgokey
- * 
- * 10    5/14/97 2:40p Bgokey
- * 
- * 9     5/13/97 4:29p Bgokey
- * 
- * 8     4/28/97 11:58a Mgummelt
- * 
- * 7     4/22/97 3:50p Rjohnson
- * Added some more particle commands to cut back on the networking
- * 
- * 6     4/15/97 9:02p Bgokey
- * 
- * 5     2/19/97 11:51a Rjohnson
- * Id Updates
- */

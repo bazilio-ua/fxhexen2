@@ -59,12 +59,15 @@ typedef struct texture_s
 {
 	char		name[16];
 	unsigned	width, height;
-	int			gltexture;
-	struct msurface_s	*texturechain;	// for gl_texsort drawing
+	struct gltexture_s	*gltexture; // pointer to gltexture
+	struct gltexture_s	*fullbright; // fullbright mask texture
+	struct gltexture_s	*warpimage; // for water animation
+	qboolean	update_warp;			// update warp this frame
+	struct msurface_s	*texturechain;	// for texture chains
 	int			anim_total;				// total tenths in sequence ( 0 = no)
 	int			anim_min, anim_max;		// time for this frame min <=time< max
 	struct texture_s *anim_next;		// in the animation sequence
-	struct texture_s *alternate_anims;	// bmodels in frmae 1 use these
+	struct texture_s *alternate_anims;	// bmodels in frame 1 use these
 	unsigned	offsets[MIPLEVELS];		// four mip maps stored
 } texture_t;
 
@@ -226,7 +229,8 @@ typedef struct mspriteframe_s
 	short	width;
 	short	height;
 	float	up, down, left, right;
-	int		gltexture;
+	float	smax, tmax; // image might be padded
+	struct	gltexture_s	*gltexture;
 } mspriteframe_t;
 
 typedef struct
@@ -319,7 +323,8 @@ typedef struct {
 	int					posedata;	// numposes*poseverts trivert_t
 	int					commands;	// gl command list with embedded s/t
 
-	int					gltexture[MAX_SKINS];
+	struct gltexture_s	*gltexture[MAX_SKINS];
+	struct gltexture_s	*fullbright[MAX_SKINS];
 	maliasframedesc_t	frames[1];	// variable sized
 } aliashdr_t;
 

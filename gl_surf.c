@@ -10,14 +10,18 @@
 
 int		lightmap_bytes;		// 1, 2, or 4
 
-int		lightmap_textures;
 
-unsigned		blocklights[18*18];
 
 #define	BLOCK_WIDTH		128
 #define	BLOCK_HEIGHT	128
 
+
+unsigned		blocklights[18*18];
+
 #define	MAX_LIGHTMAPS	64
+//int		lightmap_textures;
+gltexture_t *lightmap_textures[MAX_LIGHTMAPS]; // changed to an array
+
 int			active_lightmaps;
 
 glpoly_t	*lightmap_polys[MAX_LIGHTMAPS];
@@ -238,8 +242,10 @@ texture_t *R_TextureAnimation (texture_t *base)
 */
 
 
-extern	int		solidskytexture;
-extern	int		alphaskytexture;
+//extern	int		solidskytexture;
+//extern	int		alphaskytexture;
+extern gltexture_t		*solidskytexture, *alphaskytexture;
+
 extern	float	speedscale;		// for top sky and bottom sky
 
 void DrawGLWaterPoly (glpoly_t *p);
@@ -301,7 +307,7 @@ void R_DrawSequentialPoly (msurface_t *s)
 		}
 		glEnd ();
 
-		GL_Bind (lightmap_textures + s->lightmaptexture);
+		GL_Bind (lightmap_textures[s->lightmaptexture]);
 		glEnable (GL_BLEND);
 		glBegin (GL_POLYGON);
 		v = p->verts[0];
@@ -366,7 +372,7 @@ void R_DrawSequentialPoly (msurface_t *s)
 	GL_Bind (t->gltexture);
 	DrawGLWaterPoly (p);
 
-	GL_Bind (lightmap_textures + s->lightmaptexture);
+	GL_Bind (lightmap_textures[s->lightmaptexture]);
 	glEnable (GL_BLEND);
 	DrawGLWaterPolyLightmap (p);
 	glDisable (GL_BLEND);
@@ -487,16 +493,16 @@ void R_BlendLightmaps (qboolean Translucent)
 		p = lightmap_polys[i];
 		if (!p)
 			continue;
-		GL_Bind(lightmap_textures+i);
+		GL_Bind(lightmap_textures[i]);
 		if (lightmap_modified[i])
 		{
 			lightmap_modified[i] = false;
 
 			sprintf(name, "lightmap%03i",i);
 			data = lightmaps+i*BLOCK_WIDTH*BLOCK_HEIGHT*lightmap_bytes;
-
-			GL_UploadLightmap (name, (unsigned *)data, BLOCK_WIDTH, BLOCK_HEIGHT);
-
+//			GL_Bind(lightmap_textures[i]);
+//			GL_UploadLightmap (name, (unsigned *)data, BLOCK_WIDTH, BLOCK_HEIGHT);
+			lightmap_textures[i] = GL_LoadTexture (cl.worldmodel, name, BLOCK_WIDTH, BLOCK_HEIGHT, SRC_LIGHTMAP, data, "", (unsigned)data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
 		}
 		for ( ; p ; p=p->chain)
 		{
@@ -742,7 +748,7 @@ void R_DrawBrushModel (entity_t *e, qboolean Translucent)
 	qboolean	rotated;
 
 	currententity = e;
-	currenttexture = -1;
+//	currenttexture = -1;
 
 	clmodel = e->model;
 
@@ -973,7 +979,7 @@ void R_DrawWorld (void)
 	VectorCopy (r_refdef.vieworg, modelorg);
 
 	currententity = &ent;
-	currenttexture = -1;
+//	currenttexture = -1;
 
 	glColor3f (1,1,1);
 	memset (lightmap_polys, 0, sizeof(lightmap_polys));
@@ -1243,11 +1249,16 @@ void R_BuildLightmaps (void)
 
 	r_framecount = 1;		// no dlightcache
 
-	if (!lightmap_textures)
+	// null out array (the gltexture objects themselves were already freed by Mod_ClearAll)
+	for (i=0; i < MAX_LIGHTMAPS; i++)
+		lightmap_textures[i] = NULL;
+
+
+/*	if (!lightmap_textures)
 	{
 		lightmap_textures = texture_extension_number;
 		texture_extension_number += MAX_LIGHTMAPS;
-	}
+	}*/
 
 	gl_lightmap_format = GL_LUMINANCE;
 	if (COM_CheckParm ("-lm_1"))
@@ -1307,8 +1318,9 @@ void R_BuildLightmaps (void)
 		sprintf(name, "lightmap%03i",i);
 		data = lightmaps+i*BLOCK_WIDTH*BLOCK_HEIGHT*lightmap_bytes;
 
-		GL_Bind(lightmap_textures + i);
-		GL_UploadLightmap (name, (unsigned *)data, BLOCK_WIDTH, BLOCK_HEIGHT);
+//		GL_Bind(lightmap_textures + i);
+//		GL_UploadLightmap (name, (unsigned *)data, BLOCK_WIDTH, BLOCK_HEIGHT);
+		lightmap_textures[i] = GL_LoadTexture (cl.worldmodel, name, BLOCK_WIDTH, BLOCK_HEIGHT, SRC_LIGHTMAP, data, "", (unsigned)data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
 	}
 }
 

@@ -20,11 +20,12 @@ mplane_t	frustum[4];
 int			c_brush_polys, c_alias_polys, c_sky_polys;
 
 qboolean	envmap;				// true during envmap command capture 
-int			currenttexture;		// to avoid unnecessary texture sets
+//int			currenttexture;		// to avoid unnecessary texture sets
 
-int			particletexture;	// little dot for particles
-int			playertextures;		// up to 16 color translated skins
-int			gl_extra_textures[MAX_EXTRA_TEXTURES];   // generic textures for models
+gltexture_t			*particletexture;	// little dot for particles
+//gltexture_t			*playertextures;		// up to 16 color translated skins
+gltexture_t *playertextures[MAX_SCOREBOARD]; // changed to an array of pointers
+gltexture_t			*gl_extra_textures[MAX_EXTRA_TEXTURES];   // generic textures for models
 
 mplane_t	*mirror_plane;
 
@@ -860,7 +861,7 @@ void R_DrawAliasModel (entity_t *e)
 			Sys_Error ("skinnum > 255");
 		}
 
-		if (gl_extra_textures[currententity->skinnum-100] == -1)  // Need to load it in
+		if (gl_extra_textures[currententity->skinnum-100] == NULL)  // Need to load it in
 		{
 			sprintf(temp,"gfx/skin%d.lmp",currententity->skinnum);
 			stonepic = Draw_CachePic(temp);
@@ -887,7 +888,7 @@ void R_DrawAliasModel (entity_t *e)
 			{
 				i = currententity - cl_entities;
 				if (i >= 1 && i<=cl.maxclients)
-					GL_Bind(playertextures - 1 + i);
+					GL_Bind(playertextures[i - 1]);
 			}
 		}
 	}

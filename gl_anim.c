@@ -16,8 +16,8 @@ int		skytexorder[6] = {0,2,1,3,4,5}; // for skybox
 char	*suf[6] = {"rt", "bk", "lf", "ft", "up", "dn"}; // for skybox
 
 
-int		solidskytexture;
-int		alphaskytexture;
+gltexture_t		*solidskytexture;
+gltexture_t		*alphaskytexture;
 float	speedscale;		// for top sky and bottom sky
 
 msurface_t	*warpface;
@@ -402,7 +402,8 @@ void R_InitSky (texture_t *mt)
 	}
 
 	sprintf (texturename, "%s_s", mt->name);
-	solidskytexture = GL_LoadTexture (texturename, 128, 128, (byte *)back_data, false, false, 0);
+//	solidskytexture = GL_LoadTexture (texturename, 128, 128, (byte *)back_data, false, false, 0);
+	solidskytexture = GL_LoadTexture (loadmodel, texturename, 128, 128, SRC_INDEXED, back_data, "", (unsigned)back_data, TEXPREF_NONE);
 
 // extract front layer and upload
 	for (i=0 ; i<128 ; i++)
@@ -416,7 +417,8 @@ void R_InitSky (texture_t *mt)
 	}
 
 	sprintf (texturename, "%s_a", mt->name);
-	alphaskytexture = GL_LoadTexture (texturename, 128, 128, (byte *)front_data, false, true, 0);
+//	alphaskytexture = GL_LoadTexture (texturename, 128, 128, (byte *)front_data, false, true, 0);
+	alphaskytexture = GL_LoadTexture (loadmodel, texturename, 128, 128, SRC_INDEXED, front_data, "", (unsigned)front_data, TEXPREF_ALPHA);
 
 // calculate r_fastsky color based on average of all opaque foreground colors
 	r = g = b = count = 0;

@@ -344,6 +344,8 @@ void Mod_LoadTextures (lump_t *l)
 	texture_t	*anims[10];
 	texture_t	*altanims[10];
 	dmiptexlump_t *m;
+	char		texturename[64];
+	unsigned	offset;
 
 	if (!l->filelen)
 	{
@@ -382,6 +384,10 @@ void Mod_LoadTextures (lump_t *l)
 		// the pixels immediately follow the structures
 		memcpy ( tx+1, mt+1, pixels);
 
+		tx->update_warp = false;
+		tx->warpimage = NULL;
+		tx->fullbright = NULL;
+
 		if (cls.state != ca_dedicated) // no texture uploading for dedicated server
 		{
 			if (!strncmp(mt->name,"sky",3))	
@@ -389,12 +395,19 @@ void Mod_LoadTextures (lump_t *l)
 			else
 			{
 				//texture_mode = GL_LINEAR_MIPMAP_NEAREST; //_LINEAR;
-				texture_mode = GL_LINEAR;
-				tx->gltexture = GL_LoadTexture (mt->name, tx->width, tx->height, (byte *)(tx+1), false, false, 0);//mipmap was true
-				texture_mode = GL_LINEAR;
+//				texture_mode = GL_LINEAR;
+//				tx->gltexture = GL_LoadTexture (mt->name, tx->width, tx->height, (byte *)(tx+1), false, false, 0);//mipmap was true
+//				texture_mode = GL_LINEAR;
+				offset = (unsigned)(mt+1) - (unsigned)mod_base;
+				sprintf (texturename, "%s:%s", loadmodel->name, tx->name);
+				tx->gltexture = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP);
+
 			}
 		}
 	}
+	// last 2 slots in array should be filled with dummy textures
+	loadmodel->textures[loadmodel->numtextures-2] = notexture_mip; // for lightmapped surfs
+	loadmodel->textures[loadmodel->numtextures-1] = notexture_mip2; // for SURF_DRAWTILED surfs
 
 //
 // sequence the animations
@@ -1597,10 +1610,12 @@ Mod_LoadAllSkins
 void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags)
 {
 	int		i;
-	char	name[32];
+//	char	name[32];
+	char	skinname[64];
 	int		s;
 	byte	*skin;
-	int		texture_mode;
+	unsigned		texture_mode;
+	unsigned				offset; //johnfitz
 	
 	skin = (byte *)(pskintype + 1);
 
@@ -1644,17 +1659,30 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags
 			memcpy (player_texels[4], (byte *)(pskintype + 1), s);
 		}
 
-		sprintf (name, "%s_%i", loadmodel->name, i);
+//		sprintf (name, "%s_%i", loadmodel->name, i);
 		if( mdl_flags & EF_HOLEY )
-			texture_mode = 2;
+		{
+			texture_mode = TEXPREF_TRANSMODE2; // was 2
+			Con_Warning("TEXPREF_TRANSMODE2 - EF_HOLEY - mode 2\n");
+		}
 		else if( mdl_flags & EF_TRANSPARENT )
-			texture_mode = 1;
+		{
+			texture_mode = TEXPREF_TRANSMODE1; // was 1
+			Con_Warning("TEXPREF_TRANSMODE1 - EF_TRANSPARENT - mode 1\n");
+		}
 		else if( mdl_flags & EF_SPECIAL_TRANS )
-			texture_mode = 3;
+		{
+			texture_mode = TEXPREF_TRANSMODE3; // was 3
+			Con_Warning("TEXPREF_TRANSMODE3 - EF_SPECIAL_TRANS - mode 3\n");
+		}
 		else
-			texture_mode = 0;
+			texture_mode = TEXPREF_NONE; // 0
 
-		pheader->gltexture[i] = GL_LoadTexture (name, pheader->skinwidth, pheader->skinheight, (byte *)(pskintype + 1), false, false, texture_mode);//mipmap was true
+//		pheader->gltexture[i] = GL_LoadTexture (name, pheader->skinwidth, pheader->skinheight, (byte *)(pskintype + 1), false, false, texture_mode);//mipmap was true
+		offset = (unsigned)(pskintype+1) - (unsigned)mod_base;
+		sprintf (skinname, "%s:frame%i", loadmodel->name, i);
+		pheader->gltexture[i] = GL_LoadTexture (loadmodel, skinname, pheader->skinwidth, pheader->skinheight, SRC_INDEXED, (byte *)(pskintype+1), loadmodel->name, offset, TEXPREF_PAD | texture_mode);
+
 		pskintype = (daliasskintype_t *)((byte *)(pskintype+1) + s);
 	}
 
@@ -2098,12 +2126,13 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 Mod_LoadSpriteFrame
 =================
 */
-void * Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
+void *Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
 {
 	dspriteframe_t		*pinframe;
 	mspriteframe_t		*pspriteframe;
 	int					width, height, size, origin[2];
 	char				name[64];
+	unsigned			offset; //johnfitz
 
 	pinframe = (dspriteframe_t *)pin;
 
@@ -2127,10 +2156,13 @@ void * Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
 	pspriteframe->left = origin[0];
 	pspriteframe->right = width + origin[0];
 
-	sprintf (name, "%s_%i", loadmodel->name, framenum);
+//	sprintf (name, "%s_%i", loadmodel->name, framenum);
+//	pspriteframe->gltexture = GL_LoadTexture (name, width, height, (byte *)(pinframe + 1), false, true, 0);//mipmap was true
 
+	sprintf (name, "%s:frame%i", loadmodel->name, framenum);
+	offset = (unsigned)(pinframe+1) - (unsigned)mod_base; //johnfitz
+	pspriteframe->gltexture = GL_LoadTexture (loadmodel, name, width, height, SRC_INDEXED, (byte *)(pinframe+1), loadmodel->name, offset, TEXPREF_PAD | TEXPREF_ALPHA | TEXPREF_NOPICMIP);
 
-	pspriteframe->gltexture = GL_LoadTexture (name, width, height, (byte *)(pinframe + 1), false, true, 0);//mipmap was true
 
 	return (void *)((byte *)pinframe + sizeof (dspriteframe_t) + size);
 }
@@ -2141,7 +2173,7 @@ void * Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
 Mod_LoadSpriteGroup
 =================
 */
-void * Mod_LoadSpriteGroup (void *pin, mspriteframe_t **ppframe, int framenum)
+void *Mod_LoadSpriteGroup (void *pin, mspriteframe_t **ppframe, int framenum)
 {
 	dspritegroup_t		*pingroup;
 	mspritegroup_t		*pspritegroup;

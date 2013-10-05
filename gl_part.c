@@ -86,7 +86,7 @@ void R_InitParticleTexture (void)
 	int		x,y;
 	byte	particle1_data[64*64*4];
 	byte			*dst;
-	char name[64];
+//	char name[64];
 
 	//
 	// particle texture 1 - circle
@@ -103,11 +103,13 @@ void R_InitParticleTexture (void)
 		}
 	}
 	
-	particletexture = texture_extension_number++;
-	GL_Bind(particletexture);
-
+//	particletexture = texture_extension_number++;
+/*	GL_Bind(particletexture);
 	sprintf (name, "particle");
 	GL_Upload32 (name, (unsigned *)particle1_data, 64, 64, false, true);
+*/
+	particletexture = GL_LoadTexture (NULL, "particle", 64, 64, SRC_RGBA, particle1_data, "", (unsigned)particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
+
 
 
 	texturescalefactor = 1.25;
