@@ -176,9 +176,9 @@ extern float gl_texture_anisotropy;
 * 2 - color 0 transparent
 * 3 - special (particle translucency table)
 */
-#define TEXPREF_TRANSMODE1		0x2000	// EF_TRANSPARENT (mode 1)
-#define TEXPREF_TRANSMODE2		0x4000	// EF_HOLEY (mode 2)
-#define TEXPREF_TRANSMODE3		0x8000	// EF_SPECIAL_TRANS (mode 3)
+#define TEXPREF_TRANSPARENT		0x2000	// EF_TRANSPARENT	(mode 1)
+#define TEXPREF_HOLEY			0x4000	// EF_HOLEY			(mode 2)
+#define TEXPREF_SPECIAL_TRANS	0x8000	// EF_SPECIAL_TRANS	(mode 3)
 
 enum srcformat {SRC_INDEXED, SRC_LIGHTMAP, SRC_RGBA, SRC_BLOOM};
 

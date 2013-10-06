@@ -1661,11 +1661,11 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags
 
 //		sprintf (name, "%s_%i", loadmodel->name, i);
 		if( mdl_flags & EF_HOLEY )
-			texture_mode = TEXPREF_TRANSMODE2; // was 2
+			texture_mode = TEXPREF_HOLEY; // was 2
 		else if( mdl_flags & EF_TRANSPARENT )
-			texture_mode = TEXPREF_TRANSMODE1; // was 1
+			texture_mode = TEXPREF_TRANSPARENT; // was 1
 		else if( mdl_flags & EF_SPECIAL_TRANS )
-			texture_mode = TEXPREF_TRANSMODE3; // was 3
+			texture_mode = TEXPREF_SPECIAL_TRANS; // was 3
 		else
 			texture_mode = TEXPREF_NONE; // 0
 

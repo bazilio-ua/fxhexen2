@@ -186,6 +186,7 @@ void R_LoadPalette (void)
 			v = (ColorPercent[15-p]<<24) + (r<<0) + (g<<8) + (b<<16);
 			*table++ = v;
 
+			// tint part, FIXME not used?
 			RTint[i*16+p] = ((float)r) / ((float)ColorPercent[15-p]) ;
 			GTint[i*16+p] = ((float)g) / ((float)ColorPercent[15-p]);
 			BTint[i*16+p] = ((float)b) / ((float)ColorPercent[15-p]);

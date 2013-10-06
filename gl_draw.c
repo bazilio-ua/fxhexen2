@@ -2226,6 +2226,12 @@ void GL_Upload8 (gltexture_t *glt, byte *data)
 			glt->flags &= ~TEXPREF_ALPHA;
 	}
 
+
+	// set alpha if we have trans mode
+	if (glt->flags & (TEXPREF_TRANSPARENT | TEXPREF_HOLEY | TEXPREF_SPECIAL_TRANS))
+		glt->flags |= TEXPREF_ALPHA;
+
+
 	// choose palette and convert to 32bit
 	if (glt->flags & TEXPREF_FULLBRIGHT)
 	{
@@ -2260,11 +2266,45 @@ void GL_Upload8 (gltexture_t *glt, byte *data)
 		}
 	}
 
-	
-	// transmode
-	if (glt->flags & TEXPREF_TRANSMODE1)
+
+
+//if (glt->flags & (TEXPREF_ALPHA | TEXPREF_TRANSPARENT | TEXPREF_HOLEY | TEXPREF_SPECIAL_TRANS))
+//if (glt->flags & TEXPREF_ALPHA)
+{
+	for (i = 0; i < size; i++)
 	{
-		glt->flags |= TEXPREF_ALPHA;
+		p = data[i];
+		if (p == 255)
+		{
+
+			/* transparent, so scan around for another color
+			 * to avoid alpha fringes */
+			/* this is a replacement from Quake II for Raven's
+			 * "neighboring colors" code */
+			if (i > (int)glt->width && data[i-glt->width] != 255)
+				p = data[i-glt->width];
+			else if (i < size-(int)glt->width && data[i+glt->width] != 255)
+				p = data[i+glt->width];
+			else if (i > 0 && data[i-1] != 255)
+				p = data[i-1];
+			else if (i < size-1 && data[i+1] != 255)
+				p = data[i+1];
+			else
+				p = 0;
+			/* copy rgb components */
+			((byte *)&trans[i])[0] = ((byte *)&d_8to24table[p])[0];
+			((byte *)&trans[i])[1] = ((byte *)&d_8to24table[p])[1];
+			((byte *)&trans[i])[2] = ((byte *)&d_8to24table[p])[2];
+		} 
+	}
+}
+
+
+
+	// transmode
+	if (glt->flags & TEXPREF_TRANSPARENT)
+	{
+//		glt->flags |= TEXPREF_ALPHA;
 		for (i=0 ; i<size ; i++)
 		{
 			p = data[i];
@@ -2281,9 +2321,9 @@ void GL_Upload8 (gltexture_t *glt, byte *data)
 			}
 		}
 	}
-	else if (glt->flags & TEXPREF_TRANSMODE2)
+	else if (glt->flags & TEXPREF_HOLEY)
 	{
-		glt->flags |= TEXPREF_ALPHA;
+//		glt->flags |= TEXPREF_ALPHA;
 		for (i=0 ; i<size ; i++)
 		{
 			p = data[i];
@@ -2291,9 +2331,9 @@ void GL_Upload8 (gltexture_t *glt, byte *data)
 				trans[i] &= 0x00ffffff;
 		}
 	}
-	else if (glt->flags & TEXPREF_TRANSMODE3)
+	else if (glt->flags & TEXPREF_SPECIAL_TRANS)
 	{
-		glt->flags |= TEXPREF_ALPHA;
+//		glt->flags |= TEXPREF_ALPHA;
 		for (i=0 ; i<size ; i++)
 		{
 			p = data[i];
@@ -2301,6 +2341,8 @@ void GL_Upload8 (gltexture_t *glt, byte *data)
 			trans[i] |= ( int )ColorPercent[p&15] << 24;
 		}
 	}
+
+
 
 
 	// fix edges
@@ -2430,7 +2472,7 @@ gltexture_t *GL_LoadTexture (model_t *owner, char *name, int width, int height, 
 	int		size = 0; // keep compiler happy
 	gltexture_t	*glt;
 	unsigned short crc;
-	int mark;
+//	int mark;
 
 	if (cls.state == ca_dedicated)
 		return NULL; // No textures in dedicated mode
@@ -2520,7 +2562,7 @@ reloads a texture
 void GL_ReloadTexture (gltexture_t *glt)
 {
 	byte	*data = NULL;
-	int		mark;
+//	int		mark;
 //
 // get source data
 //
