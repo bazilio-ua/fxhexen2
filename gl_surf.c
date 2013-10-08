@@ -739,22 +739,26 @@ R_DrawBrushModel
 void R_DrawBrushModel (entity_t *e, qboolean Translucent)
 {
 	int			k;
-	vec3_t		mins, maxs;
+//	vec3_t		mins, maxs;
 	int			i;
 	msurface_t	*psurf;
 	float		dot;
 	mplane_t	*pplane;
 	model_t		*clmodel;
-	qboolean	rotated;
+//	qboolean	rotated;
+
+	if (R_CullModelForEntity(e))
+		return;
 
 	currententity = e;
 //	currenttexture = -1;
 
 	clmodel = e->model;
 
+	VectorSubtract (r_refdef.vieworg, e->origin, modelorg);
 	if (e->angles[0] || e->angles[1] || e->angles[2])
 	{
-		rotated = true;
+/*		rotated = true;
 		for (i=0 ; i<3 ; i++)
 		{
 			mins[i] = e->origin[i] - clmodel->radius;
@@ -774,9 +778,8 @@ void R_DrawBrushModel (entity_t *e, qboolean Translucent)
 	glColor3f (1,1,1);
 	memset (lightmap_polys, 0, sizeof(lightmap_polys));
 
-	VectorSubtract (r_refdef.vieworg, e->origin, modelorg);
 	if (rotated)
-	{
+	{ */
 		vec3_t	temp;
 		vec3_t	forward, right, up;
 
@@ -789,8 +792,7 @@ void R_DrawBrushModel (entity_t *e, qboolean Translucent)
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 
-// calculate dynamic lighting for bmodel if it's not an
-// instanced model
+// calculate dynamic lighting for bmodel if it's not an instanced model
 	if (clmodel->firstmodelsurface != 0 && !gl_flashblend.value)
 	{
 		for (k=0 ; k<MAX_DLIGHTS ; k++)

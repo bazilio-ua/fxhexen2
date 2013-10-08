@@ -1,3 +1,22 @@
+/*
+Copyright (C) 1996-1997 Id Software, Inc.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
 // gl_main.c
 
 /*
@@ -94,20 +113,87 @@ static void R_RotateForEntity2(entity_t *e);
 /*
 =================
 R_CullBox
+replaced with new function from lordhavoc
 
-Returns true if the box is completely outside the frustom
+Returns true if the box is completely outside the frustum
 =================
 */
-qboolean R_CullBox (vec3_t mins, vec3_t maxs)
+qboolean R_CullBox (vec3_t emins, vec3_t emaxs)
 {
-	int		i;
-
-	for (i=0 ; i<4 ; i++)
-		if (BoxOnPlaneSide (mins, maxs, &frustum[i]) == 2)
-			return true;
+	int i;
+	mplane_t *p;
+	for (i = 0;i < 4;i++)
+	{
+		p = frustum + i;
+		switch(p->signbits)
+		{
+			default:
+			case 0:
+				if (p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2] < p->dist)
+					return true;
+				break;
+			case 1:
+				if (p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2] < p->dist)
+					return true;
+				break;
+			case 2:
+				if (p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2] < p->dist)
+					return true;
+				break;
+			case 3:
+				if (p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2] < p->dist)
+					return true;
+				break;
+			case 4:
+				if (p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2] < p->dist)
+					return true;
+				break;
+			case 5:
+				if (p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2] < p->dist)
+					return true;
+				break;
+			case 6:
+				if (p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2] < p->dist)
+					return true;
+				break;
+			case 7:
+				if (p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2] < p->dist)
+					return true;
+				break;
+		}
+	}
 	return false;
 }
 
+/*
+===============
+R_CullModelForEntity
+
+uses correct bounds based on rotation
+===============
+*/
+qboolean R_CullModelForEntity (entity_t *e)
+{
+	vec3_t mins, maxs;
+
+	if (e->angles[0] || e->angles[2]) // pitch or roll
+	{
+		VectorAdd (e->origin, e->model->rmins, mins);
+		VectorAdd (e->origin, e->model->rmaxs, maxs);
+	}
+	else if (e->angles[1]) // yaw
+	{
+		VectorAdd (e->origin, e->model->ymins, mins);
+		VectorAdd (e->origin, e->model->ymaxs, maxs);
+	}
+	else // no rotation
+	{
+		VectorAdd (e->origin, e->model->mins, mins);
+		VectorAdd (e->origin, e->model->maxs, maxs);
+	}
+
+	return R_CullBox (mins, maxs);
+}
 
 /*
 =================

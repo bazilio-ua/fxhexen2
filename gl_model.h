@@ -1,5 +1,21 @@
 /*
- * $Header: /H2 Mission Pack/gl_model.h 7     3/12/98 1:12p Jmonroe $
+Copyright (C) 1996-1997 Id Software, Inc.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
  */
 
 #ifndef __MODEL__
@@ -71,7 +87,6 @@ typedef struct texture_s
 	unsigned	offsets[MIPLEVELS];		// four mip maps stored
 } texture_t;
 
-
 #define	SURF_PLANEBACK		2
 #define	SURF_DRAWSKY		4
 #define SURF_DRAWSPRITE		8
@@ -79,14 +94,18 @@ typedef struct texture_s
 #define SURF_DRAWTILED		0x20
 #define SURF_DRAWBACKGROUND	0x40
 #define SURF_UNDERWATER		0x80
-#define SURF_TRANSLUCENT	0x100
-#define SURF_DRAWBLACK		0x200
+//#define SURF_TRANSLUCENT	0x100
+//#define SURF_DRAWBLACK		0x200
+
 #define SURF_NOTEXTURE		0x100 // johnfitz
 #define SURF_DRAWALPHA		0x200
 #define SURF_DRAWLAVA		0x400
 #define SURF_DRAWSLIME		0x800
 #define SURF_DRAWTELE		0x1000
 #define SURF_DRAWWATER		0x2000
+#define SURF_TRANSLUCENT	0x4000
+#define SURF_DRAWBLACK		0x8000
+
 
 typedef struct
 {
@@ -121,7 +140,7 @@ typedef struct msurface_s
 	float		maxs[3];		// for frustum culling
 
 	mplane_t	*plane;
-	int			flags;
+	unsigned int			flags;
 
 	int			firstedge;	// look up in model->surfedges[], negative numbers
 	int			numedges;	// are backwards edges
@@ -328,9 +347,9 @@ typedef struct {
 	maliasframedesc_t	frames[1];	// variable sized
 } aliashdr_t;
 
-#define	MAXALIASVERTS	2000
-#define	MAXALIASFRAMES	256
-#define	MAXALIASTRIS	2048
+#define	MAXALIASVERTS	4096	//2000
+#define	MAXALIASFRAMES	1024	//256
+#define	MAXALIASTRIS	4096	//2048
 extern	aliashdr_t	*pheader;
 extern	stvert_t	stverts[MAXALIASVERTS];
 extern	mtriangle_t	triangles[MAXALIASTRIS];
@@ -403,7 +422,7 @@ typedef struct model_s
 	vec3_t		ymins, ymaxs; // bounds for entities with nonzero yaw
 	vec3_t		rmins, rmaxs; // bounds for entities with nonzero pitch or roll
 // removed float radius
-	float		radius;
+//	float		radius;
 
 //
 // solid volume for clipping 
@@ -484,56 +503,3 @@ byte	*Mod_LeafPVS (mleaf_t *leaf, model_t *model);
 model_t *Mod_FindName (char *name);
 
 #endif	// __MODEL__
-
-/*
- * $Log: /H2 Mission Pack/gl_model.h $
- * 
- * 7     3/12/98 1:12p Jmonroe
- * removed strcmp from render code
- * 
- * 6     3/11/98 12:10p Jmonroe
- * first pass at new model fmt in GL , s and t are not correct
- * 
- * 5     2/26/98 9:19p Jmonroe
- * shortened memory struct for sprites, added sprite orientation code in
- * gl (need to test)
- * 
- * 4     2/20/98 12:18p Jmonroe
- * changed modelgen.h to genmodel.h
- * 
- * 14    9/18/97 2:34p Rlove
- * 
- * 13    9/17/97 1:27p Rlove
- * 
- * 12    9/17/97 11:11a Rlove
- * 
- * 11    7/24/97 6:09p Rjohnson
- * Upped the number of model verts to the software one
- * 
- * 10    7/15/97 4:09p Rjohnson
- * New particle effect
- * 
- * 9     6/12/97 6:42a Rlove
- * Smoke entities are being deleted (before they weren't)
- * 
- * 8     5/31/97 11:12a Rjohnson
- * GL Updates
- * 
- * 7     5/28/97 3:54p Rjohnson
- * Effect to make a model always face you
- * 
- * 6     5/22/97 5:56p Rjohnson
- * New translucency effect
- * 
- * 5     3/28/97 5:28p Rjohnson
- * Updates to the transparency for the models
- * 
- * 4     3/07/97 1:06p Rjohnson
- * Id Updates
- * 
- * 3     3/07/97 12:06p Rjohnson
- * Added new spell particle effect
- * 
- * 2     2/20/97 12:13p Rjohnson
- * Code fixes for id update
- */
