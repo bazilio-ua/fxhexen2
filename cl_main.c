@@ -373,6 +373,7 @@ dlight_t *CL_AllocDlight (int key)
 			{
 				memset (dl, 0, sizeof(*dl));
 				dl->key = key;
+				dl->color[0] = dl->color[1] = dl->color[2] = 1; // lit support via lordhavoc
 				return dl;
 			}
 		}
@@ -386,6 +387,7 @@ dlight_t *CL_AllocDlight (int key)
 		{
 			memset (dl, 0, sizeof(*dl));
 			dl->key = key;
+			dl->color[0] = dl->color[1] = dl->color[2] = 1; // lit support via lordhavoc
 			return dl;
 		}
 	}
@@ -393,6 +395,7 @@ dlight_t *CL_AllocDlight (int key)
 	dl = &cl_dlights[0];
 	memset (dl, 0, sizeof(*dl));
 	dl->key = key;
+	dl->color[0] = dl->color[1] = dl->color[2] = 1; // lit support via lordhavoc
 	return dl;
 }
 

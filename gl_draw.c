@@ -1082,6 +1082,8 @@ void Pics_Upload (void)
 	// get the other pics we need
 	//
 //	draw_disc = Draw_PicFromWad ("disc");
+	// Do this backwards so we don't try and draw the 
+	// skull as we are loading
 	for(i=MAX_DISC-1 ; i>=0 ; i--)
 	{
 		sprintf(texturepath, "gfx/menu/skull%d.lmp", i);

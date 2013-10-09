@@ -114,7 +114,6 @@ BOOL ConverterInit( LPSTR szInFile )
     MIDIFILEHDR     Header;
     PINTRACKSTATE   ptsTrack;
     UINT        idx;
-	FILE	*f;//tmp
 
     tkCurrentTime = 0;
 
@@ -129,16 +128,13 @@ BOOL ConverterInit( LPSTR szInFile )
     //
 //	MidiData = (byte *)COM_LoadHunkFile2((char *)szInFile, (int *)&ifs.cbFileLength);
 	MidiData = (byte *)COM_LoadHunkFile((char *)szInFile, NULL);
+	ifs.cbFileLength = com_filesize;
 	if (!MidiData) 
 	{
 		goto Init_Cleanup;
 	}
 	MidiOffset = 0;
-	f = fopen ((char *)szInFile, "rb");
-	if (f)
-	{
-		MidiSize = Sys_FileLength(f);
-	}
+	MidiSize = ifs.cbFileLength;
 
 /*    hInFile = CreateFile( szInFile, GENERIC_READ,
             FILE_SHARE_READ, NULL, OPEN_EXISTING,

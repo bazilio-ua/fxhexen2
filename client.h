@@ -78,11 +78,11 @@ typedef struct
 	float	decay;				// drop this each second
 	float	minlight;			// don't add when contributing less
 	int		key;
-
+	vec3_t	color;				// lit support via lordhavoc
 	qboolean	dark;			// subtracts light instead of adding
 } dlight_t;
 
-#define	MAX_EFRAGS		640
+#define	MAX_EFRAGS		2048 //640
 
 #define	MAX_MAPSTRING	2048
 #define	MAX_DEMOS		8
@@ -210,7 +210,8 @@ typedef struct
 	struct model_s		*model_precache[MAX_MODELS];
 	struct sfx_s		*sound_precache[MAX_SOUNDS];
 
-	char		levelname[40];	// for display on solo scoreboard
+	char		worldname[MAX_QPATH];
+	char		levelname[256];	// for display on solo scoreboard
 	int			viewentity;		// cl_entitites[cl.viewentity] = player
 	int			maxclients;
 	int			gametype;
@@ -231,6 +232,9 @@ typedef struct
 
 // frag scoreboard
 	scoreboard_t	*scores;		// [cl.maxclients]
+
+	double			last_angle_time;
+	vec3_t			lerpangles;
 
 	qboolean		noclip_anglehack;
 
@@ -287,8 +291,8 @@ extern	cvar_t	m_forward;
 extern	cvar_t	m_side;
 
 
-#define	MAX_TEMP_ENTITIES	512 //64			// lightning bolts, etc
-#define	MAX_STATIC_ENTITIES	256 //128			// torches, etc
+#define	MAX_TEMP_ENTITIES	512 // was 64			// lightning bolts, etc
+#define	MAX_STATIC_ENTITIES	1024 // was 256 //128			// torches, etc
 
 extern	client_state_t	cl;
 

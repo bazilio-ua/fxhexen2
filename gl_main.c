@@ -109,6 +109,7 @@ static qboolean AlwaysDrawModel;
 
 static void R_RotateForEntity2(entity_t *e);
 
+void R_SetupAliasFrame (int frame, aliashdr_t *paliashdr);
 
 /*
 =================
@@ -195,88 +196,6 @@ qboolean R_CullModelForEntity (entity_t *e)
 	return R_CullBox (mins, maxs);
 }
 
-/*
-=================
-R_RotateForEntity
-=================
-*/
-void R_RotateForEntity (entity_t *e)
-{
-    glTranslatef (e->origin[0],  e->origin[1],  e->origin[2]);
-
-    glRotatef (e->angles[1],  0, 0, 1);
-    glRotatef (-e->angles[0],  0, 1, 0);
-    glRotatef (-e->angles[2],  1, 0, 0);
-}
-
-//==========================================================================
-//
-// R_RotateForEntity2
-//
-// Same as R_RotateForEntity(), but checks for EF_ROTATE and modifies
-// yaw appropriately.
-//
-//==========================================================================
-
-static void R_RotateForEntity2(entity_t *e)
-{
-	float	forward;
-	float	yaw, pitch;
-	vec3_t			angles;
-
-	glTranslatef(e->origin[0], e->origin[1], e->origin[2]);
-
-	if (e->model->flags & EF_FACE_VIEW)
-	{
-		VectorSubtract(e->origin,r_origin,angles);
-		VectorSubtract(r_origin,e->origin,angles);
-		VectorNormalize(angles);
-
-		if (angles[1] == 0 && angles[0] == 0)
-		{
-			yaw = 0;
-			if (angles[2] > 0)
-				pitch = 90;
-			else
-				pitch = 270;
-		}
-		else
-		{
-			yaw = (int) (atan2(angles[1], angles[0]) * 180 / M_PI);
-			if (yaw < 0)
-				yaw += 360;
-
-			forward = sqrt (angles[0]*angles[0] + angles[1]*angles[1]);
-			pitch = (int) (atan2(angles[2], forward) * 180 / M_PI);
-			if (pitch < 0)
-				pitch += 360;
-		}
-
-		angles[0] = pitch;
-		angles[1] = yaw;
-		angles[2] = 0;
-
-		glRotatef(-angles[0], 0, 1, 0);
-		glRotatef(angles[1], 0, 0, 1);
-//		glRotatef(-angles[2], 1, 0, 0);
-		glRotatef(-e->angles[2], 1, 0, 0);
-	}
-	else 
-	{
-		if (e->model->flags & EF_ROTATE)
-		{
-			glRotatef(anglemod((e->origin[0]+e->origin[1])*0.8
-				+(108*cl.time)), 0, 0, 1);
-		}
-		else
-		{
-			glRotatef(e->angles[1], 0, 0, 1);
-		}
-
-		glRotatef(-e->angles[0], 0, 1, 0);
-		glRotatef(-e->angles[2], 1, 0, 0);
-	}
-}
 
 /*
 =============================================================
@@ -553,6 +472,7 @@ float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 
 vec3_t	shadevector;
 float	shadelight, ambientlight;
+extern vec3_t	lightcolor; // replaces "float shadelight" for lit support
 
 // precalculated dot products for quantized angles
 #define SHADEDOT_QUANT 16
@@ -564,160 +484,9 @@ float	*shadedots = r_avertexnormal_dots[0];
 
 int	lastposenum;
 
-/*
-=============
-GL_DrawAliasFrame
-=============
-*/
+qboolean shading = true; // if false, disable vertex shading for various reasons (fullbright, etc)
 
-void GL_DrawAliasFrame (aliashdr_t *paliashdr, int posenum)
-{
-	float 	l;
-	trivertx_t	*verts;
-	int		*order;
-	int		count;
-	float	r,g,b;
-
-lastposenum = posenum;
-
-	verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
-	verts += posenum * paliashdr->poseverts;
-	order = (int *)((byte *)paliashdr + paliashdr->commands);
-
-	if (currententity->colorshade)
-	{
-		r = RTint[currententity->colorshade];
-		g = GTint[currententity->colorshade];
-		b = BTint[currententity->colorshade];
-	}
-	else
-		r = g = b = 1;
-
-	while (1)
-	{
-		// get the vertex count and primitive type
-		count = *order++;
-		if (!count)
-			break;		// done
-		if (count < 0)
-		{
-			count = -count;
-			glBegin (GL_TRIANGLE_FAN);
-		}
-		else
-			glBegin (GL_TRIANGLE_STRIP);
-
-		do
-		{
-			// texture coordinates come from the draw list
-			glTexCoord2f (((float *)order)[0], ((float *)order)[1]);
-			order += 2;
-
-			// normals and vertexes come from the frame list
-			l = shadedots[verts->lightnormalindex] * shadelight;
-			glColor4f (r*l, g*l, b*l, model_constant_alpha);
-
-			glVertex3f (verts->v[0], verts->v[1], verts->v[2]);
-			verts++;
-		} while (--count);
-
-		glEnd ();
-	}
-}
-
-
-/*
-=============
-GL_DrawAliasShadow
-=============
-*/
-extern	vec3_t			lightspot;
-
-void GL_DrawAliasShadow (aliashdr_t *paliashdr, int posenum)
-{
-	trivertx_t	*verts;
-	int		*order;
-	vec3_t	point;
-	float	height, lheight;
-	int		count;
-
-	lheight = currententity->origin[2] - lightspot[2];
-
-	height = 0;
-	verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
-	verts += posenum * paliashdr->poseverts;
-	order = (int *)((byte *)paliashdr + paliashdr->commands);
-
-	height = -lheight + 1.0;
-
-	while (1)
-	{
-		// get the vertex count and primitive type
-		count = *order++;
-		if (!count)
-			break;		// done
-		if (count < 0)
-		{
-			count = -count;
-			glBegin (GL_TRIANGLE_FAN);
-		}
-		else
-			glBegin (GL_TRIANGLE_STRIP);
-
-		do
-		{
-			// texture coordinates come from the draw list
-			// (skipped for shadows) glTexCoord2fv ((float *)order);
-			order += 2;
-
-			// normals and vertexes come from the frame list
-			point[0] = verts->v[0] * paliashdr->scale[0] + paliashdr->scale_origin[0];
-			point[1] = verts->v[1] * paliashdr->scale[1] + paliashdr->scale_origin[1];
-			point[2] = verts->v[2] * paliashdr->scale[2] + paliashdr->scale_origin[2];
-
-			point[0] -= shadevector[0]*(point[2]+lheight);
-			point[1] -= shadevector[1]*(point[2]+lheight);
-			point[2] = height;
-//			height -= 0.001;
-			glVertex3fv (point);
-
-			verts++;
-		} while (--count);
-
-		glEnd ();
-	}	
-}
-
-
-
-/*
-=================
-R_SetupAliasFrame
-
-=================
-*/
-void R_SetupAliasFrame (int frame, aliashdr_t *paliashdr)
-{
-	int				pose, numposes;
-	float			interval;
-
-	if ((frame >= paliashdr->numframes) || (frame < 0))
-	{
-		Con_DPrintf ("R_AliasSetupFrame: no such frame %d\n", frame);
-		frame = 0;
-	}
-
-	pose = paliashdr->frames[frame].firstpose;
-	numposes = paliashdr->frames[frame].numposes;
-
-	if (numposes > 1)
-	{
-		interval = paliashdr->frames[frame].interval;
-		pose += (int)(cl.time / interval) % numposes;
-	}
-
-	GL_DrawAliasFrame (paliashdr, pose);
-}
+float	entalpha;
 
 
 
@@ -1011,19 +780,6 @@ void R_DrawAliasModel (entity_t *e)
 
 	glPopMatrix ();
 
-	if (r_shadows.value)
-	{
-		glPushMatrix ();
-		R_RotateForEntity2(e);
-		glDisable (GL_TEXTURE_2D);
-		glEnable (GL_BLEND);
-		glColor4f (0,0,0,0.5);
-		GL_DrawAliasShadow (paliashdr, lastposenum);
-		glEnable (GL_TEXTURE_2D);
-		glDisable (GL_BLEND);
-		glColor4f (1,1,1,1);
-		glPopMatrix ();
-	}
 
 }
 
@@ -1108,14 +864,16 @@ Implemented by: jack
 ================
 */
 
-int transCompare(const void *arg1, const void *arg2 ) {
+int transCompare(const void *arg1, const void *arg2 ) 
+{
 	const sortedent_t *a1, *a2;
 	a1 = (sortedent_t *) arg1;
 	a2 = (sortedent_t *) arg2;
 	return (a2->len - a1->len); // Sorted in reverse order.  Neat, huh?
 }
 
-void R_DrawTransEntitiesOnList ( qboolean inwater) {
+void R_DrawTransEntitiesOnList ( qboolean inwater ) 
+{
 	int i;
 	int numents;
 	sortedent_t *theents;
@@ -1497,114 +1255,173 @@ void R_RenderView (void)
 }
 
 /*
- * $Log: /H2 Mission Pack/gl_rmain.c $
- * 
- * 4     3/30/98 10:57a Jmonroe
- * 
- * 3     2/26/98 9:19p Jmonroe
- * shortened memory struct for sprites, added sprite orientation code in
- * gl (need to test)
- * 
- * 2     1/18/98 8:06p Jmonroe
- * all of rick's patch code is in now
- * 
- * 38    10/28/97 6:11p Jheitzman
- * 
- * 36    9/25/97 2:10p Rjohnson
- * Smaller status bar
- * 
- * 35    9/23/97 9:47p Rjohnson
- * Fix for dedicated gl server and color maps for sheeps
- * 
- * 34    9/15/97 1:26p Rjohnson
- * Fixed sprites
- * 
- * 33    9/09/97 5:24p Rjohnson
- * Play skin updates
- * 
- * 32    9/03/97 9:10a Rjohnson
- * Update
- * 
- * 31    8/31/97 9:27p Rjohnson
- * GL Updates
- * 
- * 30    8/21/97 11:31a Rjohnson
- * Fix for color map
- * 
- * 29    8/20/97 10:38p Rjohnson
- * Fix for view model drawing
- * 
- * 28    8/17/97 4:14p Rjohnson
- * Fix for model lighting
- * 
- * 27    8/15/97 3:10p Rjohnson
- * Precache Update
- * 
- * 26    8/06/97 2:59p Rjohnson
- * Fix for getting the light on the gl version
- * 
- * 25    7/24/97 5:31p Rjohnson
- * Updates to the gl version for color tinting
- * 
- * 24    6/17/97 10:03a Rjohnson
- * GL Updates
- * 
- * 23    6/16/97 5:47p Bgokey
- * 
- * 22    6/16/97 4:20p Rjohnson
- * Added a sky poly count
- * 
- * 21    6/16/97 5:28a Rjohnson
- * Minor fixes
- * 
- * 20    6/14/97 2:30p Rjohnson
- * Changed the defaults of some of the console variables
- * 
- * 19    6/14/97 1:59p Rjohnson
- * Updated the fps display in the gl size, as well as meshing directories
- * 
- * 18    5/31/97 3:43p Rjohnson
- * Fix for translucent water
- * 
- * 17    6/02/97 3:42p Gmctaggart
- * GL Catchup
- * 
- * 16    5/31/97 3:43p Rjohnson
- * Drawing items in the right order
- * 
- * 15    5/31/97 11:12a Rjohnson
- * GL Updates
- * 
- * 14    5/28/97 3:54p Rjohnson
- * Effect to make a model always face you
- * 
- * 13    5/15/97 6:34p Rjohnson
- * Code Cleanup
- * 
- * 12    4/17/97 2:38p Bgokey
- * 
- * 11    4/17/97 2:30p Bgokey
- * 
- * 10    4/17/97 12:15p Rjohnson
- * Fixed some compiling problems
- * 
- * 9     4/15/97 9:02p Bgokey
- * 
- * 8     3/25/97 12:48a Bgokey
- * 
- * 7     3/22/97 5:19p Rjohnson
- * Changed the stone drawing flag to just a generic way based upon the
- * skin number
- * 
- * 6     3/22/97 3:23p Rjohnson
- * Reversed a debugging test
- * 
- * 5     3/22/97 3:22p Rjohnson
- * Added the stone texture ability for models
- * 
- * 4     3/13/97 10:54p Rjohnson
- * Added support for transparent sprites
- * 
- * 3     3/13/97 12:24p Rjohnson
- * Added the dynamic scaling of models to the gl version
- */
+=================
+R_RotateForEntity
+=================
+*/
+void R_RotateForEntity (entity_t *e)
+{
+    glTranslatef (e->origin[0],  e->origin[1],  e->origin[2]);
+
+    glRotatef (e->angles[1],  0, 0, 1);
+    glRotatef (-e->angles[0],  0, 1, 0);
+    glRotatef (-e->angles[2],  1, 0, 0);
+}
+
+//==========================================================================
+//
+// R_RotateForEntity2
+//
+// Same as R_RotateForEntity(), but checks for EF_ROTATE and modifies
+// yaw appropriately.
+//
+//==========================================================================
+
+static void R_RotateForEntity2(entity_t *e)
+{
+	float	forward;
+	float	yaw, pitch;
+	vec3_t			angles;
+
+	glTranslatef(e->origin[0], e->origin[1], e->origin[2]);
+
+	if (e->model->flags & EF_FACE_VIEW)
+	{
+		VectorSubtract(e->origin,r_origin,angles);
+		VectorSubtract(r_origin,e->origin,angles);
+		VectorNormalize(angles);
+
+		if (angles[1] == 0 && angles[0] == 0)
+		{
+			yaw = 0;
+			if (angles[2] > 0)
+				pitch = 90;
+			else
+				pitch = 270;
+		}
+		else
+		{
+			yaw = (int) (atan2(angles[1], angles[0]) * 180 / M_PI);
+			if (yaw < 0)
+				yaw += 360;
+
+			forward = sqrt (angles[0]*angles[0] + angles[1]*angles[1]);
+			pitch = (int) (atan2(angles[2], forward) * 180 / M_PI);
+			if (pitch < 0)
+				pitch += 360;
+		}
+
+		angles[0] = pitch;
+		angles[1] = yaw;
+		angles[2] = 0;
+
+		glRotatef(-angles[0], 0, 1, 0);
+		glRotatef(angles[1], 0, 0, 1);
+//		glRotatef(-angles[2], 1, 0, 0);
+		glRotatef(-e->angles[2], 1, 0, 0);
+	}
+	else 
+	{
+		if (e->model->flags & EF_ROTATE)
+		{
+			glRotatef(anglemod((e->origin[0]+e->origin[1])*0.8
+				+(108*cl.time)), 0, 0, 1);
+		}
+		else
+		{
+			glRotatef(e->angles[1], 0, 0, 1);
+		}
+
+		glRotatef(-e->angles[0], 0, 1, 0);
+		glRotatef(-e->angles[2], 1, 0, 0);
+	}
+}
+
+/*
+=============
+GL_DrawAliasFrame
+=============
+*/
+void GL_DrawAliasFrame (aliashdr_t *paliashdr, int posenum)
+{
+	float 	l;
+	trivertx_t	*verts;
+	int		*order;
+	int		count;
+	float	r,g,b;
+
+lastposenum = posenum;
+
+	verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
+	verts += posenum * paliashdr->poseverts;
+	order = (int *)((byte *)paliashdr + paliashdr->commands);
+
+	if (currententity->colorshade)
+	{
+		r = RTint[currententity->colorshade];
+		g = GTint[currententity->colorshade];
+		b = BTint[currententity->colorshade];
+	}
+	else
+		r = g = b = 1;
+
+	while (1)
+	{
+		// get the vertex count and primitive type
+		count = *order++;
+		if (!count)
+			break;		// done
+		if (count < 0)
+		{
+			count = -count;
+			glBegin (GL_TRIANGLE_FAN);
+		}
+		else
+			glBegin (GL_TRIANGLE_STRIP);
+
+		do
+		{
+			// texture coordinates come from the draw list
+			glTexCoord2f (((float *)order)[0], ((float *)order)[1]);
+			order += 2;
+
+			// normals and vertexes come from the frame list
+			l = shadedots[verts->lightnormalindex] * shadelight;
+			glColor4f (r*l, g*l, b*l, model_constant_alpha);
+
+			glVertex3f (verts->v[0], verts->v[1], verts->v[2]);
+			verts++;
+		} while (--count);
+
+		glEnd ();
+	}
+}
+
+/*
+=================
+R_SetupAliasFrame
+
+=================
+*/
+void R_SetupAliasFrame (int frame, aliashdr_t *paliashdr)
+{
+	int				pose, numposes;
+	float			interval;
+
+	if ((frame >= paliashdr->numframes) || (frame < 0))
+	{
+		Con_DPrintf ("R_AliasSetupFrame: no such frame %d\n", frame);
+		frame = 0;
+	}
+
+	pose = paliashdr->frames[frame].firstpose;
+	numposes = paliashdr->frames[frame].numposes;
+
+	if (numposes > 1)
+	{
+		interval = paliashdr->frames[frame].interval;
+		pose += (int)(cl.time / interval) % numposes;
+	}
+
+	GL_DrawAliasFrame (paliashdr, pose);
+}
