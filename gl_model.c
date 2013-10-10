@@ -375,8 +375,12 @@ void Mod_LoadTextures (lump_t *l)
 	texture_t	*altanims[10];
 	dmiptexlump_t *m;
 	char		texturename[64];
+	int			nummiptex;
 	unsigned	offset;
+	int			mark;
+	char		texname[16 + 1];
 
+	// don't return early if no textures; still need to create dummy texture
 	if (!l->filelen)
 	{
 		loadmodel->textures = NULL;
@@ -421,20 +425,48 @@ void Mod_LoadTextures (lump_t *l)
 		if (cls.state != ca_dedicated) // no texture uploading for dedicated server
 		{
 			if (!strncmp(mt->name,"sky",3))	
-				R_InitSky (tx);
-			else
 			{
-				//texture_mode = GL_LINEAR_MIPMAP_NEAREST; //_LINEAR;
-//				texture_mode = GL_LINEAR;
-//				tx->gltexture = GL_LoadTexture (mt->name, tx->width, tx->height, (byte *)(tx+1), false, false, 0);//mipmap was true
-//				texture_mode = GL_LINEAR;
-				offset = (unsigned)(mt+1) - (unsigned)mod_base;
-				sprintf (texturename, "%s:%s", loadmodel->name, tx->name);
-				tx->gltexture = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP);
+				R_InitSky (tx);
+			}
+			else if (tx->name[0] == '*') // warping texture
+			{
+//				byte	*dummy;
+				mark = Hunk_LowMark();
 
+				sprintf (texturename, "%s:%s", loadmodel->name, tx->name);
+				offset = (unsigned)(mt+1) - (unsigned)mod_base;
+				tx->gltexture = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_NONE);
+
+				// now create the warpimage, using dummy data to create the initial image
+//				dummy = malloc (gl_warpimage_size*gl_warpimage_size*4);
+				//now create the warpimage, using dummy data from the hunk to create the initial image
+				Hunk_Alloc (gl_warpimage_size*gl_warpimage_size*4); //make sure hunk is big enough so we don't reach an illegal address
+				Hunk_FreeToLowMark (mark);
+				sprintf (texturename, "%s_warp", texturename);
+//				tx->warpimage = GL_LoadTexture (loadmodel, texturename, gl_warpimage_size, gl_warpimage_size, SRC_RGBA /* SRC_INDEXED */, dummy, "", (unsigned)dummy, TEXPREF_NOPICMIP | TEXPREF_WARPIMAGE);
+				tx->warpimage = GL_LoadTexture (loadmodel, texturename, gl_warpimage_size, gl_warpimage_size, SRC_RGBA /* SRC_INDEXED */, hunk_base, "", (unsigned)hunk_base, TEXPREF_NOPICMIP | TEXPREF_WARPIMAGE);
+				tx->update_warp = true;
+//				free (dummy);
+			}
+			else // regular texture
+			{
+				offset = (unsigned)(mt+1) - (unsigned)mod_base;
+				if (IsFullbright ((byte *)(tx+1), pixels))
+				{
+					sprintf (texturename, "%s:%s", loadmodel->name, tx->name);
+					tx->gltexture = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT);
+					sprintf (texturename, "%s:%s_glow", loadmodel->name, tx->name);
+					tx->fullbright = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT);
+				}
+				else
+				{
+					sprintf (texturename, "%s:%s", loadmodel->name, tx->name);
+					tx->gltexture = GL_LoadTexture (loadmodel, texturename, tx->width, tx->height, SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP);
+				}
 			}
 		}
 	}
+
 	// last 2 slots in array should be filled with dummy textures
 	loadmodel->textures[loadmodel->numtextures-2] = notexture_mip; // for lightmapped surfs
 	loadmodel->textures[loadmodel->numtextures-1] = notexture_mip2; // for SURF_DRAWTILED surfs
@@ -1709,7 +1741,7 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags
 			memcpy (player_texels[4], (byte *)(pskintype + 1), size);
 		}
 
-//		sprintf (name, "%s_%i", loadmodel->name, i);
+
 		if( mdl_flags & EF_HOLEY )
 			texture_mode = TEXPREF_HOLEY; // was 2
 		else if( mdl_flags & EF_TRANSPARENT )
@@ -1719,10 +1751,21 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype, int mdl_flags
 		else
 			texture_mode = TEXPREF_NONE; // 0
 
-//		pheader->gltexture[i] = GL_LoadTexture (name, pheader->skinwidth, pheader->skinheight, (byte *)(pskintype + 1), false, false, texture_mode);//mipmap was true
 		offset = (unsigned)(pskintype+1) - (unsigned)mod_base;
-		sprintf (skinname, "%s:frame%i", loadmodel->name, i);
-		pheader->gltexture[i] = GL_LoadTexture (loadmodel, skinname, pheader->skinwidth, pheader->skinheight, SRC_INDEXED, (byte *)(pskintype+1), loadmodel->name, offset, TEXPREF_PAD | texture_mode);
+		if (IsFullbright ((byte *)(pskintype+1), size))
+		{
+			sprintf (skinname, "%s:frame%i", loadmodel->name, i);
+			pheader->gltexture[i] = GL_LoadTexture (loadmodel, skinname, pheader->skinwidth, pheader->skinheight, SRC_INDEXED, (byte *)(pskintype+1), loadmodel->name, offset, TEXPREF_PAD | TEXPREF_NOBRIGHT | texture_mode);
+
+			sprintf (skinname, "%s:frame%i_glow", loadmodel->name, i);
+			pheader->fullbright[i] = GL_LoadTexture (loadmodel, skinname, pheader->skinwidth, pheader->skinheight, SRC_INDEXED, (byte *)(pskintype+1), loadmodel->name, offset, TEXPREF_PAD | TEXPREF_FULLBRIGHT | texture_mode);
+		}
+		else
+		{
+			sprintf (skinname, "%s:frame%i", loadmodel->name, i);
+			pheader->gltexture[i] = GL_LoadTexture (loadmodel, skinname, pheader->skinwidth, pheader->skinheight, SRC_INDEXED, (byte *)(pskintype+1), loadmodel->name, offset, TEXPREF_PAD | texture_mode);
+			pheader->fullbright[i] = NULL;
+		}
 
 		pskintype = (daliasskintype_t *)((byte *)(pskintype+1) + size);
 	}

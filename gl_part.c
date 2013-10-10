@@ -1,6 +1,22 @@
 /*
- * $Header: /H2 Mission Pack/R_PART.C 54    4/01/98 6:43p Jmonroe $
- */
+Copyright (C) 1996-1997 Id Software, Inc.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
 
 #include "quakedef.h"
 
@@ -103,11 +119,7 @@ void R_InitParticleTexture (void)
 		}
 	}
 	
-//	particletexture = texture_extension_number++;
-/*	GL_Bind(particletexture);
-	sprintf (name, "particle");
-	GL_Upload32 (name, (unsigned *)particle1_data, 64, 64, false, true);
-*/
+
 	particletexture = GL_LoadTexture (NULL, "particle", 64, 64, SRC_RGBA, particle1_data, "", (unsigned)particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
 
 
@@ -225,70 +237,6 @@ static particle_t *AllocParticle(void)
 	return p;
 }
 
-/*
-===============
-R_EntityParticles
-===============
-*/
-/*
-#define NUMVERTEXNORMALS	162
-extern	float	r_avertexnormals[NUMVERTEXNORMALS][3];
-vec3_t	avelocities[NUMVERTEXNORMALS];
-float	beamlength = 16;
-//vec3_t	avelocity = {23, 7, 3};
-//float	partstep = 0.01;
-//float	timescale = 0.01;
-
-void R_EntityParticles (entity_t *ent)
-{
-	int			count;
-	int			i;
-	particle_t	*p;
-	float		angle;
-	float		sr, sp, sy, cr, cp, cy;
-	vec3_t		forward;
-	float		dist;
-	
-	dist = 64;
-	count = 50;
-
-if (!avelocities[0][0])
-{
-for (i=0 ; i<NUMVERTEXNORMALS*3 ; i++)
-avelocities[0][i] = (rand()&255) * 0.01;
-}
-
-
-	for (i=0 ; i<NUMVERTEXNORMALS ; i++)
-	{
-		angle = cl.time * avelocities[i][0];
-		sy = sin(angle);
-		cy = cos(angle);
-		angle = cl.time * avelocities[i][1];
-		sp = sin(angle);
-		cp = cos(angle);
-		angle = cl.time * avelocities[i][2];
-		sr = sin(angle);
-		cr = cos(angle);
-	
-		forward[0] = cp*cy;
-		forward[1] = cp*sy;
-		forward[2] = -sp;
-
-		p = AllocParticle();
-		if (!p)
-			return;
-
-		p->die = cl.time + 0.01;
-		p->color = 0x6f;
-		p->type = pt_fireball;//pt_explode;
-		
-		p->org[0] = ent->origin[0] + r_avertexnormals[i][0]*dist + forward[0]*beamlength;			
-		p->org[1] = ent->origin[1] + r_avertexnormals[i][1]*dist + forward[1]*beamlength;			
-		p->org[2] = ent->origin[2] + r_avertexnormals[i][2]*dist + forward[2]*beamlength;			
-	}
-}
-*/
 
 /*
 ===============
@@ -310,52 +258,6 @@ void R_ClearParticles (void)
 }
 
 
-void R_ReadPointFile_f (void)
-{
-	FILE	*f;
-	vec3_t	org;
-	int		r;
-	int		c;
-	particle_t	*p;
-	char	name[MAX_OSPATH];
-	byte	color;
-	
-	color = (byte)Cvar_VariableValue("leak_color");
-	sprintf (name,"maps/%s.pts", sv.name);
-
-	COM_FOpenFile (name, &f, NULL);
-	if (!f)
-	{
-		Con_Printf ("couldn't open %s\n", name);
-		return;
-	}
-	
-	Con_Printf ("Reading %s...\n", name);
-	c = 0;
-	for ( ;; )
-	{
-		r = fscanf (f,"%f %f %f\n", &org[0], &org[1], &org[2]);
-		if (r != 3)
-			break;
-		c++;
-		
-		p = AllocParticle();
-		if (!p)
-		{
-			Con_Printf ("Not enough free particles\n");
-			break;
-		}
-		
-		p->die = 99999;
-		p->color = color; // (-c)&15;
-		p->type = pt_static;
-		VectorCopy (vec3_origin, p->vel);
-		VectorCopy (org, p->org);
-	}
-
-	fclose (f);
-	Con_Printf ("%i points read\n", c);
-}
 
 /*
 ===============
@@ -496,81 +398,8 @@ void R_ParticleExplosion (vec3_t org)
 	}
 }
 
-/*
-===============
-R_ParticleExplosion2
 
-===============
-*/
-/*
-void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
-{
-	int			i, j;
-	particle_t	*p;
-	int			colorMod = 0;
 
-	for (i=0; i<512; i++)
-	{
-		p = AllocParticle();
-		if (!p)
-			return;
-
-		p->die = cl.time + 0.3;
-		p->color = colorStart + (colorMod % colorLength);
-		colorMod++;
-
-		p->type = pt_blob;
-		for (j=0 ; j<3 ; j++)
-		{
-			p->org[j] = org[j] + ((rand()&31)-16);
-			p->vel[j] = (rand()&511)-256;
-		}
-	}
-}
-*/
-/*
-===============
-R_BlobExplosion
-tar
-===============
-*/
-/*
-void R_BlobExplosion (vec3_t org)
-{
-	int			i, j;
-	particle_t	*p;
-	
-	for (i=0 ; i<1024 ; i++)
-	{
-		p = AllocParticle();
-		if (!p)
-			return;
-
-		p->die = cl.time + 1 + (rand()&8)*0.05;
-
-		if (i & 1)
-		{
-			p->type = pt_blob;
-			p->color = 66 + rand()%6;
-			for (j=0 ; j<3 ; j++)
-			{
-				p->org[j] = org[j] + ((rand()&31)-16);
-				p->vel[j] = (rand()&511)-256;
-			}
-		}
-		else
-		{
-			p->type = pt_blob2;
-			p->color = 150 + rand()%6;
-			for (j=0 ; j<3 ; j++)
-			{
-				p->org[j] = org[j] + ((rand()&31)-16);
-				p->vel[j] = (rand()&511)-256;
-			}
-		}
-	}
-}
-*/
 /*
 ===============
 R_RunParticleEffect
@@ -2109,218 +1938,50 @@ void R_DrawParticles (void)
 }
 
 
+void R_ReadPointFile_f (void)
+{
+	FILE	*f;
+	vec3_t	org;
+	int		r;
+	int		c;
+	particle_t	*p;
+	char	name[MAX_OSPATH];
+	byte	color;
+	
+	color = (byte)Cvar_VariableValue("leak_color");
+	sprintf (name,"maps/%s.pts", sv.name);
 
+	COM_FOpenFile (name, &f, NULL);
+	if (!f)
+	{
+		Con_Printf ("couldn't open %s\n", name);
+		return;
+	}
+	
+	Con_Printf ("Reading %s...\n", name);
+	c = 0;
+	for ( ;; )
+	{
+		r = fscanf (f,"%f %f %f\n", &org[0], &org[1], &org[2]);
+		if (r != 3)
+			break;
+		c++;
+		
+		p = AllocParticle();
+		if (!p)
+		{
+			Con_Printf ("Not enough free particles\n");
+			break;
+		}
+		
+		p->die = 99999;
+		p->color = color; // (-c)&15;
+		p->type = pt_static;
+		VectorCopy (vec3_origin, p->vel);
+		VectorCopy (org, p->org);
+	}
 
+	fclose (f);
+	Con_Printf ("%i points read\n", c);
+}
 
-
-/*
- * $Log: /H2 Mission Pack/R_PART.C $
- * 
- * 54    4/01/98 6:43p Jmonroe
- * fixed boundschecker errors
- * 
- * 53    3/30/98 10:57a Jmonroe
- * 
- * 52    3/13/98 3:59p Jmonroe
- * 
- * 51    3/10/98 12:21a Mgummelt
- * 
- * 50    3/09/98 11:24p Mgummelt
- * 
- * 49    3/09/98 9:40p Mgummelt
- * 
- * 48    3/06/98 6:10p Jweier
- * 
- * 47    3/06/98 2:41p Jmonroe
- * fixed ricks goof, just took out the extra call
- * 
- * 46    3/06/98 2:14p Jmonroe
- * 
- * 45    3/05/98 7:54p Jmonroe
- * fixed startRain, optimized particle struct
- * 
- * 44    3/05/98 2:56p Rjohnson
- * Fixed rain
- * 
- * 43    3/04/98 4:24p Mgummelt
- * 
- * 42    3/02/98 11:04p Jmonroe
- * changed start sound back to byte, added stopsound, put in a hack fix
- * for touchtriggers area getting removed
- * 
- * 41    3/01/98 8:20p Jmonroe
- * removed the slow "quake" version of common functions
- * 
- * 40    2/27/98 5:17p Mgummelt
- * 
- * 39    2/26/98 5:10p Mgummelt
- * 
- * 38    2/25/98 10:42p Mgummelt
- * 
- * 37    2/25/98 9:38p Jweier
- * 
- * 36    2/13/98 4:49p Jmonroe
- * added variable snow
- * 
- * 35    2/11/98 5:19p Jmonroe
- * 
- * 34    2/11/98 12:57p Jmonroe
- * 
- * 33    2/10/98 11:04a Jmonroe
- * added snow_active and snow_flurry to test out snow speeds.
- * 
- * 32    2/09/98 5:11p Jweier
- * 
- * 31    2/08/98 5:26p Mgummelt
- * 
- * 30    2/08/98 4:28p Mgummelt
- * 
- * 29    2/06/98 7:06p Mgummelt
- * 
- * 28    2/06/98 4:47p Mgummelt
- * 
- * 27    2/06/98 11:57a Mgummelt
- * 
- * 26    2/05/98 11:25p Jweier
- * 
- * 25    2/02/98 10:28a Mgummelt
- * 
- * 24    1/29/98 6:34p Mgummelt
- * 
- * 23    1/28/98 12:23p Jmonroe
- * reduced snow flury chance
- * 
- * 22    1/26/98 4:39p Plipo
- * 
- * 21    1/22/98 9:03p Jmonroe
- * many more speed improvements in software snow 
- * 
- * 20    1/22/98 5:44p Jmonroe
- * removed the div in snow flury
- * 
- * 19    1/20/98 5:55p Jmonroe
- * speed up on snow.
- * still can do more by reducing flurry algo complexity
- * 
- * 18    1/15/98 10:04p Jmonroe
- * added stub mpack menu stuff
- * 
- * 17    1/15/98 6:37p Jmonroe
- * 
- * 16    1/15/98 1:20p Jmonroe
- * enlarged the snowflake
- * 
- * 15    1/15/98 12:04p Jmonroe
- * 
- * 14    1/15/98 12:02p Jmonroe
- * added snowflake texture
- * 
- * 13    1/14/98 5:43p Mgummelt
- * 
- * 40    9/19/97 8:47a Rlove
- * 
- * 39    9/18/97 2:34p Rlove
- * 
- * 38    9/18/97 12:44p Rlove
- * 
- * 37    9/17/97 1:27p Rlove
- * 
- * 36    9/17/97 11:11a Rlove
- * 
- * 35    8/31/97 3:45p Rjohnson
- * Memory changes
- * 
- * 34    8/26/97 8:17a Rjohnson
- * Just a few changes
- * 
- * 33    8/08/97 3:50p Rlove
- * Changed blood particles to match our pallette
- * 
- * 32    8/05/97 11:47a Rlove
- * Changed the color for the rt_tracer particle
- * 
- * 31    7/30/97 1:50p Rjohnson
- * Fix for particle explosion
- * 
- * 30    7/15/97 4:09p Rjohnson
- * New particle effect
- * 
- * 29    6/12/97 9:02a Rlove
- * New vorpal particle effect
- * 
- * 28    6/02/97 3:42p Gmctaggart
- * GL Catchup
- * 
- * 27    5/30/97 11:42a Rjohnson
- * Added new effect type for the rider's death
- * 
- * 26    5/23/97 3:05p Rjohnson
- * Update to effects / particle types
- * 
- * 25    5/23/97 2:46p Bgokey
- * 
- * 24    5/23/97 12:23p Bgokey
- * 
- * 23    5/20/97 11:19a Bgokey
- * 
- * 22    4/28/97 2:50p Rlove
- * Little change to rain
- * 
- * 21    4/28/97 11:58a Mgummelt
- * 
- * 20    4/22/97 3:50p Rjohnson
- * Added some more particle commands to cut back on the networking
- * 
- * 19    4/18/97 5:40p Rjohnson
- * Fixed a bug - wasn't clearing out the ramp value for particle2effect
- * 
- * 18    4/17/97 5:39p Rjohnson
- * Added a test particle type
- * 
- * 17    4/04/97 4:10p Rjohnson
- * Added proper transparent particles for the gl version
- * 
- * 16    3/12/97 10:58p Rjohnson
- * Revised the particle2 hexen-c command to allow a range for the velocity
- * - shouldn't be as taxing on the network to get better effects
- * 
- * 15    3/07/97 2:12p Rjohnson
- * Id Updates
- * 
- * 14    3/07/97 12:06p Rjohnson
- * Added new spell particle effect
- * 
- * 13    2/20/97 12:13p Rjohnson
- * Code fixes for id update
- * 
- * 12    2/18/97 3:32p Rjohnson
- * Id Updates
- * 
- * 11    1/02/97 11:16a Rjohnson
- * Christmas work - added adaptive time, game delays, negative light,
- * particle effects, etc
- * 
- * 10    12/11/96 10:44a Rjohnson
- * Added the new ice particle effect
- * 
- * 9     12/09/96 12:27p Rjohnson
- * Modifications to the fireball as well as fixed how particles are
- * distributes through a frame
- * 
- * 8     12/06/96 2:00p Rjohnson
- * New particle type for the fireball
- * 
- * 7     11/20/96 2:10p Rjohnson
- * Added transparency to the particles, made the particles that spit out
- * when you attack the wall transparent as well.
- * 
- * 6     11/19/96 11:40a Rlove
- * Particle explosion entity
- * 
- * 5     11/15/96 8:03a Rlove
- * No longer get rain particles coming down in a solid block.
- * 
- * 4     11/14/96 3:33p Rjohnson
- * Added the "leak_color" console variable - allows them to specify the
- * color of the particles for the leaks
- */

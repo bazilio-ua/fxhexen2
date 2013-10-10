@@ -41,32 +41,6 @@ void	R_InitTextures (void)
 	notexture_mip2 = Hunk_AllocName (sizeof(texture_t), "notexture_mip2");
 	strcpy (notexture_mip2->name, "notexture2");
 	notexture_mip2->height = notexture_mip2->width = 16;
-
-/*	int		x,y, m;
-	byte	*dest;
-
-// create a simple checkerboard texture for the default
-	r_notexture_mip = Hunk_AllocName (sizeof(texture_t) + 16*16+8*8+4*4+2*2, "notexture");
-	
-	r_notexture_mip->width = r_notexture_mip->height = 16;
-	r_notexture_mip->offsets[0] = sizeof(texture_t);
-	r_notexture_mip->offsets[1] = r_notexture_mip->offsets[0] + 16*16;
-	r_notexture_mip->offsets[2] = r_notexture_mip->offsets[1] + 8*8;
-	r_notexture_mip->offsets[3] = r_notexture_mip->offsets[2] + 4*4;
-	
-	for (m=0 ; m<4 ; m++)
-	{
-		dest = (byte *)r_notexture_mip + r_notexture_mip->offsets[m];
-		for (y=0 ; y< (16>>m) ; y++)
-			for (x=0 ; x< (16>>m) ; x++)
-			{
-				if (  (y< (8>>m) ) ^ (x< (8>>m) ) )
-					*dest++ = 0;
-				else
-					*dest++ = 0xff;
-			}
-	}	
-*/
 }
 
 
@@ -195,8 +169,30 @@ void R_LoadPalette (void)
 //
 }
 
+/*
+====================
+R_FullBright
+====================
+*/
+void R_FullBright (void)
+{
+	// Refresh lightmaps
+	R_BuildLightmaps ();
+}
 
+/*
+====================
+R_ClearColor
+====================
+*/
+void R_ClearColor (void)
+{
+//	byte *rgb;
 
+	// Refresh clearcolor
+//	rgb = (byte *)(d_8to24table + ((int)r_clearcolor.value & 0xFF));
+//	glClearColor (rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0, 0);
+}
 
 /*
 ===============
@@ -205,7 +201,7 @@ R_Init
 */
 void R_Init (void)
 {	
-	extern byte *hunk_base;
+//	extern byte *hunk_base;
 //	int counter;
 
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);	
@@ -242,12 +238,7 @@ void R_Init (void)
 
 	R_InitTranslatePlayerTextures ();
 
-//	playertextures = texture_extension_number;
-//	texture_extension_number += MAX_SCOREBOARD; //16
-/*
-	for(counter=0;counter<MAX_EXTRA_TEXTURES;counter++)
-		gl_extra_textures[counter] = -1;
-*/
+
 	playerTranslation = (byte *)COM_LoadHunkFile ("gfx/player.lmp", NULL);
 	if (!playerTranslation)
 		Sys_Error ("Couldn't load gfx/player.lmp");
@@ -273,6 +264,8 @@ void R_InitTranslatePlayerTextures (void)
 		oldbottom[i] = -1;
 		oldskinnum[i] = -1;
 		oldplayerclass[i] = -1;
+
+		playertextures[i] = NULL; //clear playertexture pointers
 	}
 }
 
@@ -474,8 +467,5 @@ void R_TimeRefresh_f (void)
 	stop = Sys_DoubleTime ();
 	time = stop-start;
 	Con_Printf ("%f seconds (%f fps)\n", time, 128/time);
-
 }
-
-
 

@@ -19,10 +19,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // gl_main.c
 
-/*
- * $Header: /H2 Mission Pack/gl_rmain.c 4     3/30/98 10:57a Jmonroe $
- */
-
 #include "quakedef.h"
 
 entity_t	r_worldentity;
@@ -210,14 +206,16 @@ qboolean R_CullModelForEntity (entity_t *e)
 R_GetSpriteFrame
 ================
 */
-mspriteframe_t *R_GetSpriteFrame (msprite_t *psprite)
+mspriteframe_t *R_GetSpriteFrame (entity_t *currentent)
 {
+	msprite_t *psprite;
 	mspritegroup_t	*pspritegroup;
 	mspriteframe_t	*pspriteframe;
 	int				i, numframes, frame;
 	float			*pintervals, fullinterval, targettime, time;
 
-	frame = currententity->frame;
+	psprite = currentent->model->cache.data;
+	frame = currentent->frame;
 
 	if ((frame >= psprite->numframes) || (frame < 0))
 	{
@@ -236,7 +234,7 @@ mspriteframe_t *R_GetSpriteFrame (msprite_t *psprite)
 		numframes = pspritegroup->numframes;
 		fullinterval = pintervals[numframes-1];
 
-		time = cl.time + currententity->syncbase;
+		time = cl.time + currentent->syncbase;
 
 	// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 	// are positive, so we don't have to worry about division by 0
@@ -269,17 +267,18 @@ typedef struct
 void R_DrawSpriteModel (entity_t *e)
 {
 	vec3_t	point;
-	mspriteframe_t	*frame;
 	msprite_t		*psprite;
-	
+	mspriteframe_t	*frame;
 	vec3_t			tvec;
 	float			dot, angle, sr, cr;
 	spritedesc_t			r_spritedesc;
 	int i;
 
+	//TODO: frustum cull it?
+	frame = R_GetSpriteFrame (e);
+
 	psprite = currententity->model->cache.data;
 
-	frame = R_GetSpriteFrame (psprite);
 
 	if (psprite->type == SPR_FACING_UPRIGHT)
 	{
@@ -377,29 +376,18 @@ void R_DrawSpriteModel (entity_t *e)
 		Sys_Error ("R_DrawSprite: Bad sprite type %d", psprite->type);
 	}
 
-//	R_RotateSprite (psprite->beamlength);
 
 
 	if ((currententity->drawflags & DRF_TRANSLUCENT) || (currententity->model->flags & EF_TRANSPARENT))
 	{
-/*		// rjr
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable( GL_BLEND );
-		glColor4f (1,1,1,r_wateralpha.value);
-*/
+/**/
 		glDisable(GL_ALPHA_TEST);
 		glEnable(GL_BLEND);
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 		glColor4f(1.0f, 1.0f, 1.0f, r_wateralpha.value);
 	}
-/*	else if ()
-	{
-		// rjr
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable( GL_BLEND );
-		glColor3f(1,1,1);
-	}
-*/	else
+/**/
+	else
 	{
 		// rjr
 		//glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -412,8 +400,6 @@ void R_DrawSpriteModel (entity_t *e)
 
 	glBegin (GL_QUADS);
 
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
 	glTexCoord2f (0, 1);
 	VectorMA (e->origin, frame->down, r_spritedesc.vup, point);
@@ -437,11 +423,6 @@ void R_DrawSpriteModel (entity_t *e)
 
 	glEnd ();
 
-	//restore tex parms
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-//	glDisable( GL_BLEND );
 
 
 	if ((currententity->drawflags & DRF_TRANSLUCENT) || (currententity->model->flags & EF_TRANSPARENT))
@@ -465,7 +446,6 @@ void R_DrawSpriteModel (entity_t *e)
 
 
 #define NUMVERTEXNORMALS	162
-
 float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
@@ -515,6 +495,11 @@ void R_DrawAliasModel (entity_t *e)
 	char temp[40];
 	int mls;
 	vec3_t		adjust_origin;
+
+	//
+	// locate the proper data
+	//
+	paliashdr = (aliashdr_t *)Mod_Extradata (currententity->model);
 
 	clmodel = currententity->model;
 
@@ -586,10 +571,6 @@ void R_DrawAliasModel (entity_t *e)
 	shadevector[2] = 1;
 	VectorNormalize (shadevector);
 
-	//
-	// locate the proper data
-	//
-	paliashdr = (aliashdr_t *)Mod_Extradata (currententity->model);
 
 	c_alias_polys += paliashdr->numtris;
 
@@ -597,7 +578,7 @@ void R_DrawAliasModel (entity_t *e)
 	// draw all the triangles
 	//
 
-    glPushMatrix ();
+	glPushMatrix ();
 	R_RotateForEntity2(e);
 
 	if(currententity->scale != 0 && currententity->scale != 100)
@@ -1254,19 +1235,6 @@ void R_RenderView (void)
 		R_PrintTimes ();
 }
 
-/*
-=================
-R_RotateForEntity
-=================
-*/
-void R_RotateForEntity (entity_t *e)
-{
-    glTranslatef (e->origin[0],  e->origin[1],  e->origin[2]);
-
-    glRotatef (e->angles[1],  0, 0, 1);
-    glRotatef (-e->angles[0],  0, 1, 0);
-    glRotatef (-e->angles[2],  1, 0, 0);
-}
 
 //==========================================================================
 //

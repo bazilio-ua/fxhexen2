@@ -628,18 +628,6 @@ dynamic:
 	}
 }
 
-/*
-================
-R_MirrorChain
-================
-*/
-/*void R_MirrorChain (msurface_t *s)
-{
-	if (mirror)
-		return;
-	mirror = true;
-	mirror_plane = s->plane;
-}*/
 
 
 /*
@@ -730,6 +718,21 @@ void DrawTextureChains (void)
 		t->texturechain = NULL;
 	}
 }
+
+/*
+=================
+R_RotateForEntity
+=================
+*/
+void R_RotateForEntity (entity_t *e)
+{
+    glTranslatef (e->origin[0],  e->origin[1],  e->origin[2]);
+
+    glRotatef (e->angles[1],  0, 0, 1);
+    glRotatef (-e->angles[0],  0, 1, 0);
+    glRotatef (-e->angles[2],  1, 0, 0);
+}
+
 
 /*
 =================
