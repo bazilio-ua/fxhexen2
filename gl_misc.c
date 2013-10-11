@@ -89,20 +89,20 @@ void R_LoadPalette (void)
 	}
 	d_8to24table[255] &= *mask; // fix gcc warnings
 
-	//fullbright palette, 0-223 are black (for additive blending)
-	src = pal + 224*3;
-	dst = (byte *)(d_8to24table_fbright) + 224*4;
-	for (i=224; i<256; i++)
+	//fullbright palette, 0-237 are black (for additive blending)
+	src = pal + 238*3;
+	dst = (byte *)(d_8to24table_fbright) + 238*4;
+	for (i=238; i<256; i++)
 	{
 		*dst++ = *src++;
 		*dst++ = *src++;
 		*dst++ = *src++;
 		*dst++ = 255;
 	}
-	for (i=0; i<224; i++)
+	for (i=0; i<238; i++)
 		d_8to24table_fbright[i] = *black; // fix gcc warnings
 
-	//nobright palette, 224-255 are black (for additive blending)
+	//nobright palette, 238-255 are black (for additive blending)
 	dst = (byte *)d_8to24table_nobright;
 	src = pal;
 	for (i=0; i<256; i++)
@@ -112,7 +112,7 @@ void R_LoadPalette (void)
 		*dst++ = *src++;
 		*dst++ = 255;
 	}
-	for (i=224; i<256; i++)
+	for (i=238; i<256; i++)
 		d_8to24table_nobright[i] = *black; // fix gcc warnings
 
 	//conchars palette, 0 and 255 are transparent
