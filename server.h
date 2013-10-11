@@ -304,6 +304,7 @@ void SV_DropClient (qboolean crash);
 
 void SV_SendClientMessages (void);
 void SV_ClearDatagram (void);
+byte *SV_FatPVS (vec3_t org, struct model_s *worldmodel);
 
 int SV_ModelIndex (char *name);
 

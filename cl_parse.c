@@ -1712,8 +1712,9 @@ void CL_ParseServerMessage (void)
 
 		case svc_mod_name:
 		case svc_skybox:
-			MSG_ReadString(net_message);
-			Con_DPrintf ("Ignored server msg %d (%s)\n", cmd, svc_strings[cmd]);
+			R_LoadSkyBox (MSG_ReadString(net_message));
+//			MSG_ReadString(net_message);
+//			Con_DPrintf ("Ignored server msg %d (%s)\n", cmd, svc_strings[cmd]);
 			break;
 		}
 	}

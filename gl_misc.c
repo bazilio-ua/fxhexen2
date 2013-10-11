@@ -207,21 +207,39 @@ void R_Init (void)
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);	
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);	
 
+	Cmd_AddCommand ("sky", R_Sky_f);
+	Cmd_AddCommand ("loadsky", R_Sky_f); // Nehahra
+	Cmd_AddCommand ("fog", R_Fog_f);
+
 	Cvar_RegisterVariable (&r_norefresh, NULL);
-	Cvar_RegisterVariable (&r_lightmap, NULL);
-	Cvar_RegisterVariable (&r_fullbright, NULL);
+	Cvar_RegisterVariable (&r_fullbright, R_FullBright);
 	Cvar_RegisterVariable (&r_drawentities, NULL);
+	Cvar_RegisterVariable (&r_drawworld, NULL);
 	Cvar_RegisterVariable (&r_drawviewmodel, NULL);
-	Cvar_RegisterVariable (&r_shadows, NULL);
-	Cvar_RegisterVariable (&r_mirroralpha, NULL);
+	Cvar_RegisterVariable (&r_waterquality, NULL);
 	Cvar_RegisterVariable (&r_wateralpha, NULL);
+	Cvar_RegisterVariable (&r_lockalpha, NULL);
+	Cvar_RegisterVariable (&r_lavafog, NULL);
+	Cvar_RegisterVariable (&r_slimefog, NULL);
+	Cvar_RegisterVariable (&r_lavaalpha, NULL);
+	Cvar_RegisterVariable (&r_slimealpha, NULL);
+	Cvar_RegisterVariable (&r_telealpha, NULL);
 	Cvar_RegisterVariable (&r_dynamic, NULL);
 	Cvar_RegisterVariable (&r_novis, NULL);
+	Cvar_RegisterVariable (&r_lockfrustum, NULL);
+	Cvar_RegisterVariable (&r_lockpvs, NULL);
 	Cvar_RegisterVariable (&r_speeds, NULL);
-	Cvar_RegisterVariable (&r_wholeframe, NULL);
+	Cvar_RegisterVariable (&r_waterwarp, NULL);
+	Cvar_RegisterVariable (&r_clearcolor, R_ClearColor);
+	Cvar_RegisterVariable (&r_fastsky, NULL);
+	Cvar_RegisterVariable (&r_skyquality, NULL);
+	Cvar_RegisterVariable (&r_skyalpha, NULL);
+	Cvar_RegisterVariable (&r_skyfog, NULL);
+	Cvar_RegisterVariable (&r_oldsky, NULL);
 
+	Cvar_RegisterVariable (&gl_finish, NULL);
 	Cvar_RegisterVariable (&gl_clear, NULL);
-	Cvar_RegisterVariable (&gl_texsort, NULL);
+
 	Cvar_RegisterVariable (&gl_cull, NULL);
 	Cvar_RegisterVariable (&gl_smoothmodels, NULL);
 	Cvar_RegisterVariable (&gl_affinemodels, NULL);
@@ -233,6 +251,24 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_keeptjunctions, NULL);
 	Cvar_RegisterVariable (&gl_reporttjunctions, NULL);
 
+	Cvar_RegisterVariable (&gl_zfix, NULL); // z-fighting fix
+
+	// Nehahra
+	Cvar_RegisterVariable (&gl_fogenable, NULL);
+	Cvar_RegisterVariable (&gl_fogdensity, NULL);
+	Cvar_RegisterVariable (&gl_fogred, NULL);
+	Cvar_RegisterVariable (&gl_foggreen, NULL);
+	Cvar_RegisterVariable (&gl_fogblue, NULL);
+
+	Cvar_RegisterVariable (&r_bloom, NULL);
+	Cvar_RegisterVariable (&r_bloom_darken, NULL);
+	Cvar_RegisterVariable (&r_bloom_alpha, NULL);
+	Cvar_RegisterVariable (&r_bloom_intensity, NULL);
+	Cvar_RegisterVariable (&r_bloom_diamond_size, NULL);
+	Cvar_RegisterVariable (&r_bloom_sample_size, R_InitBloomTextures); // NULL
+	Cvar_RegisterVariable (&r_bloom_fast_sample, NULL);
+
+
 	R_InitParticles ();
 	R_InitParticleTexture ();
 
@@ -242,6 +278,11 @@ void R_Init (void)
 	playerTranslation = (byte *)COM_LoadHunkFile ("gfx/player.lmp", NULL);
 	if (!playerTranslation)
 		Sys_Error ("Couldn't load gfx/player.lmp");
+
+
+	R_InitMapGlobals ();
+
+	R_InitBloomTextures();
 }
 
 
@@ -421,7 +462,7 @@ void R_NewMap (void)
 
 	R_BuildLightmaps ();
 
-// identify sky texture
+	R_ParseWorldspawnNewMap ();
 }
 
 

@@ -78,6 +78,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	SND_OVERFLOW	(1<<2)		// add 255 to snd num
 //gonna use the rest of the bits to pack the ent+channel
 
+
+// johnfitz -- PROTOCOL_FITZQUAKE -- alpha encoding
+#define ENTALPHA_DEFAULT	0	//entity's alpha is "default" (i.e. water obeys r_wateralpha) -- must be zero so zeroed out memory works
+#define ENTALPHA_ZERO		1	//entity is invisible (lowest possible alpha)
+#define ENTALPHA_ONE		255 //entity is fully opaque (highest possible alpha)
+#define ENTALPHA_ENCODE(a)	(((a)==0)?ENTALPHA_DEFAULT:Q_rint(CLAMP(1,(a)*254.0f+1,255))) //server convert to byte to send to client
+#define ENTALPHA_DECODE(a)	(((a)==ENTALPHA_DEFAULT)?1.0f:((float)(a)-1)/(254)) //client convert to float for rendering
+#define ENTALPHA_TOSAVE(a)	(((a)==ENTALPHA_DEFAULT)?0.0f:(((a)==ENTALPHA_ZERO)?-1.0f:((float)(a)-1)/(254))) //server convert to float for savegame
+// johnfitz
+
+
 // Bits to help send server info about the client's edict variables
 #define SC1_HEALTH				(1<<0)		// changes stat bar
 #define SC1_LEVEL				(1<<1)		// changes stat bar

@@ -107,29 +107,29 @@ typedef struct entity_s
 	struct mnode_s			*topnode;		// for bmodels, first world node
 											//  that splits bmodel, or NULL if
 											//  not split
+	byte					alpha;			// alpha
+	float					fullbright;		// fullbright
+
+	// fitzquake protocol+lerping
+	byte					lerpflags;		//johnfitz -- lerping
+	float					lerpstart;		//johnfitz -- animation lerping
+	float					lerptime;		//johnfitz -- animation lerping
+	float					lerpfinish;		//johnfitz -- lerping -- server sent us a more accurate interval, use it instead of 0.1
+	short					previouspose;	//johnfitz -- animation lerping
+	short					currentpose;	//johnfitz -- animation lerping
+//	short					futurepose;		//johnfitz -- animation lerping
+	float					movelerpstart;	//johnfitz -- transform lerping
+	vec3_t					previousorigin;	//johnfitz -- transform lerping
+	vec3_t					currentorigin;	//johnfitz -- transform lerping
+	vec3_t					previousangles;	//johnfitz -- transform lerping
+	vec3_t					currentangles;	//johnfitz -- transform lerping
+
 } entity_t;
 
 typedef struct
 {
 	vrect_t		vrect;				// subwindow in video for refresh
 /*									// FIXME: not need vrect next field here?
-	vrect_t		aliasvrect;			// scaled Alias version
-	int			vrectright, vrectbottom;	// right & bottom screen coords
-	int			aliasvrectright, aliasvrectbottom;	// scaled Alias versions
-	float		vrectrightedge;			// rightmost right edge we care about,
-										//  for use in edge list
-	float		fvrectx, fvrecty;		// for floating-point compares
-	float		fvrectx_adj, fvrecty_adj; // left and top edges, for clamping
-	int			vrect_x_adj_shift20;	// (vrect.x + 0.5 - epsilon) << 20
-	int			vrectright_adj_shift20;	// (vrectright + 0.5 - epsilon) << 20
-	float		fvrectright_adj, fvrectbottom_adj;
-										// right and bottom edges, for clamping
-	float		fvrectright;			// rightmost edge, for Alias clamping
-	float		fvrectbottom;			// bottommost edge, for Alias clamping
-	float		horizontalFieldOfView;	// at Z = 1.0, this many X is visible 
-										// 2.0 = 90 degrees
-	float		xOrigin;			// should probably always be 0.5
-	float		yOrigin;			// between be around 0.3 to 0.5
 */
 	vec3_t		vieworg;
 	vec3_t		viewangles;
@@ -156,9 +156,11 @@ void R_Init (void);
 void R_InitTextures (void);
 void R_LoadPalette (void);
 void R_InitEfrags (void);
+void R_SndExtraUpdate (void);
 void R_RenderView (void);		// must set r_refdef first
-void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect);
-								// called whenever r_refdef or vid change
+void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect); // called whenever r_refdef or vid change
+								
+void R_MarkSurfaces (void);
 void R_InitSky (struct texture_s *mt);	// called at level load
 
 void R_AddEfrags (entity_t *ent);

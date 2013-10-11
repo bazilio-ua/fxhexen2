@@ -47,8 +47,11 @@ byte	mod_novis[MAX_MAP_LEAFS/8];
 model_t	mod_known[MAX_MOD_KNOWN];
 int		mod_numknown;
 
-
 int entity_file_size;
+
+cvar_t	external_lit = {"external_lit","0"};
+cvar_t	external_vis = {"external_vis","0"};
+cvar_t	external_ent = {"external_ent","0"};
 
 /*
 ===============
@@ -57,6 +60,10 @@ Mod_Init
 */
 void Mod_Init (void)
 {
+	Cvar_RegisterVariable (&external_lit, NULL);
+	Cvar_RegisterVariable (&external_vis, NULL);
+	Cvar_RegisterVariable (&external_ent, NULL);
+
 	memset (mod_novis, 0xff, sizeof(mod_novis));
 }
 
@@ -424,7 +431,7 @@ void Mod_LoadTextures (lump_t *l)
 
 		if (cls.state != ca_dedicated) // no texture uploading for dedicated server
 		{
-			if (!strncmp(mt->name,"sky",3))	
+			if (!strncasecmp(tx->name,"sky",3)) // sky texture (also note: was strncmp, changed to match qbsp)
 			{
 				R_InitSky (tx);
 			}
@@ -568,17 +575,71 @@ void Mod_LoadTextures (lump_t *l)
 /*
 =================
 Mod_LoadLighting
+
+replaced with lit support code via lordhavoc
 =================
 */
 void Mod_LoadLighting (lump_t *l)
 {
+	// LordHavoc: .lit support
+	int i;
+	byte *in, *out, *data;
+	byte d;
+	char litfilename[MAX_QPATH];
+	unsigned int path_id;
+
+	loadmodel->lightdata = NULL;
+
+	if (loadmodel->isworldmodel && external_lit.value)
+	{
+		// LordHavoc: check for a .lit file
+		strcpy(litfilename, loadmodel->name);
+		COM_StripExtension(litfilename, litfilename);
+		strcat(litfilename, ".lit");
+		Con_DPrintf("trying to load %s\n", litfilename);
+
+		data = (byte *) COM_LoadHunkFile (litfilename, &path_id);
+		if (data)
+		{
+			// use .lit file only from the same gamedir as the map
+			// itself or from a searchpath with higher priority.
+			if (path_id < loadmodel->path_id)
+			{
+				Con_DPrintf("Ignored %s from a gamedir with lower priority\n", litfilename);
+			}
+			else if (data[0] == 'Q' && data[1] == 'L' && data[2] == 'I' && data[3] == 'T')
+			{
+				i = LittleLong(((int *)data)[1]);
+				if (i == 1)
+				{
+					Con_DPrintf("%s loaded\n", litfilename);
+					loadmodel->lightdata = data + 8;
+					return;
+				}
+				else
+					Con_Printf("Unknown .lit file version (%d)\n", i);
+			}
+			else
+				Con_Printf("Corrupt .lit file (old version?), ignoring\n");
+		}
+	}
+
+	// LordHavoc: no .lit found, expand the white lighting data to color
 	if (!l->filelen)
 	{
-		loadmodel->lightdata = NULL;
 		return;
 	}
-	loadmodel->lightdata = Hunk_AllocName ( l->filelen, loadname);	
-	memcpy (loadmodel->lightdata, mod_base + l->fileofs, l->filelen);
+	loadmodel->lightdata = Hunk_AllocName ( l->filelen*3, litfilename);	
+	in = loadmodel->lightdata + l->filelen*2; // place the file at the end, so it will not be overwritten until the very last write
+	out = loadmodel->lightdata;
+	memcpy (in, mod_base + l->fileofs, l->filelen);
+	for (i = 0;i < l->filelen;i++)
+	{
+		d = *in++;
+		*out++ = d;
+		*out++ = d;
+		*out++ = d;
+	}
 }
 
 
@@ -679,6 +740,15 @@ void Mod_LoadSubmodels (lump_t *l)
 		out->firstface = LittleLong (in->firstface);
 		out->numfaces = LittleLong (in->numfaces);
 	}
+
+	// check world visleafs
+	out = loadmodel->submodels;
+
+	if (out->visleafs > MAX_MAP_LEAFS)
+		Sys_Error ("Mod_LoadSubmodels: too many visleafs (%d, max = %d) in %s", out->visleafs, MAX_MAP_LEAFS, loadmodel->name);
+
+	if (out->visleafs > 8192) // old limit warning
+		Con_Warning ("Mod_LoadSubmodels: visleafs exceeds standard limit (%d, normal max = %d) in %s\n", out->visleafs, 8192, loadmodel->name);
 }
 
 /*
@@ -749,24 +819,24 @@ void Mod_LoadTexinfo (lump_t *l)
 		miptex = LittleLong (in->miptex);
 		out->flags = LittleLong (in->flags);
 	
-		if (!loadmodel->textures)
+		if (miptex >= loadmodel->numtextures-1 || !loadmodel->textures[miptex])
 		{
-			out->texture = notexture_mip;	// checkerboard texture
-			out->flags = 0;
+			if (out->flags & TEX_SPECIAL)
+				out->texture = loadmodel->textures[loadmodel->numtextures-1]; // checkerboard texture (texture not found)
+			else
+				out->texture = loadmodel->textures[loadmodel->numtextures-2]; // checkerboard texture (texture not found)
+			out->flags |= TEX_MISSING;
 		}
 		else
 		{
-			if (miptex >= loadmodel->numtextures)
-				Sys_Error ("miptex >= loadmodel->numtextures");
 			out->texture = loadmodel->textures[miptex];
-			if (!out->texture)
-			{
-				out->texture = notexture_mip; // texture not found
-				out->flags = 0;
-			}
 		}
 	}
+
+	if (missingtex > 0)
+		Con_Warning ("Mod_LoadTexinfo: %d texture%s missing in %s\n", missingtex, missingtex == 1 ? " is" : "s are", loadmodel->name);
 }
+
 
 /*
 ================
@@ -939,12 +1009,12 @@ void Mod_LoadFaces (lump_t *l)
 
 	for ( surfnum=0 ; surfnum<count ; surfnum++, in++, out++)
 	{
-		out->firstedge = LittleLong(in->firstedge);
-		out->numedges = LittleShort(in->numedges);		
+		out->firstedge = LittleLong (in->firstedge);
+		out->numedges = LittleShort (in->numedges);		
 		out->flags = 0;
 
-		planenum = LittleShort(in->planenum);
-		side = LittleShort(in->side);
+		planenum = LittleShort (in->planenum);
+		side = LittleShort (in->side);
 		if (side)
 			out->flags |= SURF_PLANEBACK;			
 
@@ -954,42 +1024,59 @@ void Mod_LoadFaces (lump_t *l)
 
 		CalcSurfaceExtents (out);
 				
-//		Mod_CalcSurfaceBounds (out); // for per-surface frustum culling
+		Mod_CalcSurfaceBounds (out); // for per-surface frustum culling
 
-	// lighting info
-
+		// lighting info
 		for (i=0 ; i<MAXLIGHTMAPS ; i++)
 			out->styles[i] = in->styles[i];
 		i = LittleLong(in->lightofs);
 		if (i == -1)
 			out->samples = NULL;
 		else
-			out->samples = loadmodel->lightdata + i;
+			out->samples = loadmodel->lightdata + (i * 3); // lit support via lordhavoc (was "+ i") 
 		
-	// set the drawing flags flag
-		
-		if (!strncmp(out->texinfo->texture->name,"sky",3))	// sky
+		// set the drawing flags flag
+		if (!strncasecmp(out->texinfo->texture->name, "sky", 3)) // sky surface (also note: was strncmp, changed to match qbsp)
 		{
 			out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
-			GL_SubdivideSurface (out);	// cut up polygon for warps
-			continue;
+			Mod_PolyForUnlitSurface (out);
+			// no more subdivision 
 		}
-		
-		if (out->texinfo->texture->name[0]=='*')		// turbulent
+		else if (out->texinfo->texture->name[0] == '*')		// warp surface
 		{
 			out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
-			for (i=0 ; i<2 ; i++)
-			{
-				out->extents[i] = 16384;
-				out->texturemins[i] = -8192;
-			}
-			GL_SubdivideSurface (out);	// cut up polygon for warps
 
-			if ((!_strnicmp(out->texinfo->texture->name,"*rtex078",8)) ||
-				(!_strnicmp(out->texinfo->texture->name,"*lowlight",9)))
+			// detect special liquid types
+			if (!strncasecmp(out->texinfo->texture->name, "*lava", 5)
+			|| !strncasecmp(out->texinfo->texture->name, "*brim", 5))
+				out->flags |= SURF_DRAWLAVA;
+			else if (!strncasecmp(out->texinfo->texture->name, "*slime", 6))
+				out->flags |= SURF_DRAWSLIME;
+			else if (!strncasecmp(out->texinfo->texture->name, "*tele", 5)
+			|| !strncasecmp(out->texinfo->texture->name, "*rift", 5)
+			|| !strncasecmp(out->texinfo->texture->name, "*gate", 5))
+				out->flags |= SURF_DRAWTELE;
+			else
+				out->flags |= SURF_DRAWWATER; 
+
+			if (!strncasecmp(out->texinfo->texture->name, "*rtex078", 8) 
+			|| !strncasecmp(out->texinfo->texture->name, "*lowlight", 9))
 				out->flags |= SURF_TRANSLUCENT;
 
-			continue;
+			Mod_PolyForUnlitSurface (out);
+			// no more subdivision 
+		}
+		else if (out->texinfo->flags & TEX_MISSING) // texture is missing from bsp
+		{
+			if (out->samples) // lightmapped
+			{
+				out->flags |= SURF_NOTEXTURE;
+			}
+			else // not lightmapped
+			{
+				out->flags |= (SURF_NOTEXTURE | SURF_DRAWTILED);
+				Mod_PolyForUnlitSurface (out);
+			}
 		}
 	}
 }
@@ -1040,16 +1127,27 @@ void Mod_LoadNodes (lump_t *l)
 		p = LittleLong(in->planenum);
 		out->plane = loadmodel->planes + p;
 
-		out->firstsurface = LittleShort (in->firstface);
-		out->numsurfaces = LittleShort (in->numfaces);
+		out->firstsurface = (unsigned short)LittleShort (in->firstface);
+		out->numsurfaces = (unsigned short)LittleShort (in->numfaces);
 		
 		for (j=0 ; j<2 ; j++)
 		{
-			p = LittleShort (in->children[j]);
-			if (p >= 0)
+			//johnfitz -- hack to handle nodes > 32k, adapted from darkplaces
+			p = (unsigned short)LittleShort (in->children[j]);
+
+			if (p < count)
 				out->children[j] = loadmodel->nodes + p;
 			else
-				out->children[j] = (mnode_t *)(loadmodel->leafs + (-1 - p));
+			{
+				p = 65535 - p; //note this uses 65535 intentionally, -1 is leaf 0
+				if (p < loadmodel->numleafs)
+					out->children[j] = (mnode_t *)(loadmodel->leafs + p);
+				else
+				{
+					Con_Warning ("Mod_LoadNodes: invalid leaf index %i (file has only %i leafs)\n", p, loadmodel->numleafs);
+					out->children[j] = (mnode_t *)(loadmodel->leafs); //map it to the solid leaf
+				}
+			}
 		}
 	}
 	
@@ -1087,9 +1185,8 @@ void Mod_LoadLeafs (lump_t *l)
 		p = LittleLong(in->contents);
 		out->contents = p;
 
-		out->firstmarksurface = loadmodel->marksurfaces +
-			LittleShort(in->firstmarksurface);
-		out->nummarksurfaces = LittleShort(in->nummarksurfaces);
+		out->firstmarksurface = loadmodel->marksurfaces + (unsigned short)LittleShort (in->firstmarksurface);
+		out->nummarksurfaces = (unsigned short)LittleShort (in->nummarksurfaces);
 		
 		p = LittleLong(in->visofs);
 		if (p == -1)
@@ -1100,13 +1197,6 @@ void Mod_LoadLeafs (lump_t *l)
 		
 		for (j=0 ; j<4 ; j++)
 			out->ambient_sound_level[j] = in->ambient_level[j];
-
-		// gl underwater warp
-		if (out->contents != CONTENTS_EMPTY)
-		{
-			for (j=0 ; j<out->nummarksurfaces ; j++)
-				out->firstmarksurface[j]->flags |= SURF_UNDERWATER;
-		}
 	}	
 }
 
@@ -1117,7 +1207,8 @@ Mod_LoadClipnodes
 */
 void Mod_LoadClipnodes (lump_t *l)
 {
-	dclipnode_t *in, *out;
+	dclipnode_t *in;
+	mclipnode_t *out; //johnfitz -- was dclipnode_t
 	int			i, count;
 	hull_t		*hull;
 
@@ -1194,8 +1285,19 @@ void Mod_LoadClipnodes (lump_t *l)
 	for (i=0 ; i<count ; i++, out++, in++)
 	{
 		out->planenum = LittleLong(in->planenum);
-		out->children[0] = LittleShort(in->children[0]);
-		out->children[1] = LittleShort(in->children[1]);
+
+		// bounds check
+		if (out->planenum < 0 || out->planenum >= loadmodel->numplanes)
+			Host_Error ("Mod_LoadClipnodes: planenum in clipnode %d out of bounds (%d, max = %d) in %s\n", i, out->planenum, loadmodel->numplanes, loadmodel->name);
+
+		//johnfitz -- support clipnodes > 32k
+		out->children[0] = (unsigned short)LittleShort(in->children[0]);
+		out->children[1] = (unsigned short)LittleShort(in->children[1]);
+		if (out->children[0] >= count)
+			out->children[0] -= 65536;
+		if (out->children[1] >= count)
+			out->children[1] -= 65536;
+		//johnfitz
 	}
 }
 
@@ -1203,13 +1305,13 @@ void Mod_LoadClipnodes (lump_t *l)
 =================
 Mod_MakeHull0
 
-Deplicate the drawing hull structure as a clipping hull
+Duplicate the drawing hull structure as a clipping hull
 =================
 */
 void Mod_MakeHull0 (void)
 {
 	mnode_t		*in, *child;
-	dclipnode_t *out;
+	mclipnode_t *out; //johnfitz -- was dclipnode_t
 	int			i, j, count;
 	hull_t		*hull;
 	
@@ -1260,7 +1362,7 @@ void Mod_LoadMarksurfaces (lump_t *l)
 
 	for ( i=0 ; i<count ; i++)
 	{
-		j = LittleShort(in[i]);
+		j = (unsigned short)LittleShort(in[i]); //johnfitz -- explicit cast as unsigned short
 		if (j >= loadmodel->numsurfaces)
 			Sys_Error ("Mod_ParseMarksurfaces: bad surface number");
 		out[i] = loadmodel->surfaces + j;
@@ -1363,9 +1465,21 @@ void Mod_LoadBrushModel (model_t *mod, void *buffer)
 	
 	header = (dheader_t *)buffer;
 
-	i = LittleLong (header->version);
-	if (i != BSPVERSION)
-		Sys_Error ("Mod_LoadBrushModel: %s has wrong version number (%i should be %i)", mod->name, i, BSPVERSION);
+	mod->bspversion = LittleLong (header->version);
+	if (mod->bspversion != BSPVERSION)
+		Host_Error ("Mod_LoadBrushModel: %s has wrong version number (%i should be %i (Hexen II))", mod->name, mod->bspversion, BSPVERSION); // was Sys_Error
+
+	{
+		// isworldmodel
+		qboolean servermatch = sv.modelname[0] && !strcasecmp (loadname, sv.name);
+		qboolean clientmatch = cl.worldname[0] && !strcasecmp (loadname, cl.worldname);
+		Con_DPrintf ("loadname: %s\n", loadname);
+		if (servermatch)
+			Con_DPrintf ("sv.modelname: %s\n", sv.modelname);
+		if (clientmatch)
+			Con_DPrintf ("cl.modelname: %s\n", cl.worldname);
+		loadmodel->isworldmodel = servermatch || clientmatch;
+	}
 
 // swap all the lumps
 	mod_base = (byte *)header;
@@ -1420,7 +1534,6 @@ void Mod_LoadBrushModel (model_t *mod, void *buffer)
 		VectorCopy (bm->maxs, mod->maxs);
 		VectorCopy (bm->mins, mod->mins);
 
-//		mod->radius = RadiusFromBounds (mod->mins, mod->maxs);
 		// calculate rotate bounds and yaw bounds
 		radius = RadiusFromBounds (mod->mins, mod->maxs);
 		mod->rmaxs[0] = mod->rmaxs[1] = mod->rmaxs[2] = mod->ymaxs[0] = mod->ymaxs[1] = mod->ymaxs[2] = radius;
@@ -1460,18 +1573,7 @@ trivertx_t	*poseverts[MAXALIASFRAMES];
 int			posenum;
 
 byte		player_texels[MAX_PLAYER_CLASS][620*245];
-/*
-static float	aliastransform[3][4];
 
-void R_AliasTransformVector (vec3_t in, vec3_t out)
-{
-	out[0] = DotProduct(in, aliastransform[0]) + aliastransform[0][3];
-	out[1] = DotProduct(in, aliastransform[1]) + aliastransform[1][3];
-	out[2] = DotProduct(in, aliastransform[2]) + aliastransform[2][3];
-}
-
-static vec3_t	mins,maxs;
-*/
 /*
 =================
 Mod_LoadAliasFrame
@@ -1480,9 +1582,8 @@ Mod_LoadAliasFrame
 void * Mod_LoadAliasFrame (void * pin, maliasframedesc_t *frame)
 {
 	trivertx_t		*pinframe;
-	int				i;//, j;
+	int				i;
 	daliasframe_t	*pdaliasframe;
-//	vec3_t in,out;
 
 	pdaliasframe = (daliasframe_t *)pin;
 
@@ -1503,29 +1604,6 @@ void * Mod_LoadAliasFrame (void * pin, maliasframedesc_t *frame)
 	if (posenum >= MAXALIASFRAMES)
 		Sys_Error ("Mod_LoadAliasFrame: invalid # of frames (%d, max = %d) in %s", posenum, MAXALIASFRAMES, loadmodel->name);
 
-/*
-	aliastransform[0][0] = pheader->scale[0];
-	aliastransform[1][1] = pheader->scale[1];
-	aliastransform[2][2] = pheader->scale[2];
-	aliastransform[0][3] = pheader->scale_origin[0];
-	aliastransform[1][3] = pheader->scale_origin[1];
-	aliastransform[2][3] = pheader->scale_origin[2];
-
-	for (j=0;j<pheader->numverts;j++)
-	{
-		in[0] = pinframe[j].v[0];
-		in[1] = pinframe[j].v[1];
-		in[2] = pinframe[j].v[2];
-		R_AliasTransformVector(in,out);
-		for (i=0 ; i<3 ; i++)
-		{
-			if (mins[i] > out[i])
-				mins[i] = out[i];
-			if (maxs[i] < out[i])
-				maxs[i] = out[i];
-		}
-	}
-*/
 	poseverts[posenum] = pinframe;
 	posenum++;
 
@@ -1540,13 +1618,12 @@ void * Mod_LoadAliasFrame (void * pin, maliasframedesc_t *frame)
 Mod_LoadAliasGroup
 =================
 */
-void *Mod_LoadAliasGroup (void * pin,  maliasframedesc_t *frame)
+void *Mod_LoadAliasGroup (void *pin,  maliasframedesc_t *frame)
 {
 	daliasgroup_t		*pingroup;
-	int					i, /* j, k, */ numframes;
+	int					i, numframes;
 	daliasinterval_t	*pin_intervals;
 	void				*ptemp;
-//	vec3_t in,out;
 	
 	pingroup = (daliasgroup_t *)pin;
 
@@ -1569,36 +1646,13 @@ void *Mod_LoadAliasGroup (void * pin,  maliasframedesc_t *frame)
 	pin_intervals += numframes;
 
 	ptemp = (void *)pin_intervals;
-/*
-	aliastransform[0][0] = pheader->scale[0];
-	aliastransform[1][1] = pheader->scale[1];
-	aliastransform[2][2] = pheader->scale[2];
-	aliastransform[0][3] = pheader->scale_origin[0];
-	aliastransform[1][3] = pheader->scale_origin[1];
-	aliastransform[2][3] = pheader->scale_origin[2];
-*/
+
 	for (i=0 ; i<numframes ; i++)
 	{
 		if (posenum >= MAXALIASFRAMES)
 			Sys_Error ("Mod_LoadAliasGroup: invalid # of frames (%d, max = %d) in %s", posenum, MAXALIASFRAMES, loadmodel->name);
 
 		poseverts[posenum] = (trivertx_t *)((daliasframe_t *)ptemp + 1);
-/*
-		for (j=0;j<pheader->numverts;j++)
-		{
-			in[0] = poseverts[posenum][j].v[0];
-			in[1] = poseverts[posenum][j].v[1];
-			in[2] = poseverts[posenum][j].v[2];
-			R_AliasTransformVector(in,out);
-			for (k=0 ; k<3 ; k++)
-			{
-				if (mins[k] > out[k])
-					mins[k] = out[k];
-				if (maxs[k] < out[k])
-					maxs[k] = out[k];
-			}
-		}
-*/
 		posenum++;
 
 		ptemp = (trivertx_t *)((daliasframe_t *)ptemp + 1) + pheader->numverts;
@@ -1608,6 +1662,7 @@ void *Mod_LoadAliasGroup (void * pin,  maliasframedesc_t *frame)
 }
 
 //=========================================================
+
 
 /*
 =================
@@ -1622,14 +1677,12 @@ typedef struct
 	short		x, y;
 } floodfill_t;
 
-//extern unsigned d_8to24table[];
-
 // must be a power of 2
 #define FLOODFILL_FIFO_SIZE 0x1000
 #define FLOODFILL_FIFO_MASK (FLOODFILL_FIFO_SIZE - 1)
 
 #define FLOODFILL_STEP( off, dx, dy ) \
-{ \
+do { \
 	if (pos[off] == fillcolor) \
 	{ \
 		pos[off] = 255; \
@@ -1637,7 +1690,7 @@ typedef struct
 		inpt = (inpt + 1) & FLOODFILL_FIFO_MASK; \
 	} \
 	else if (pos[off] != 255) fdc = pos[off]; \
-}
+} while (0)
 
 void Mod_FloodFillSkin( byte *skin, int skinwidth, int skinheight )
 {
@@ -1645,7 +1698,7 @@ void Mod_FloodFillSkin( byte *skin, int skinwidth, int skinheight )
 	floodfill_t			fifo[FLOODFILL_FIFO_SIZE];
 	int					inpt = 0, outpt = 0;
 	int					filledcolor = -1;
-	int					i;
+	int					i, size = skinwidth * skinheight, notfill;
 
 	if (filledcolor == -1)
 	{
@@ -1662,7 +1715,20 @@ void Mod_FloodFillSkin( byte *skin, int skinwidth, int skinheight )
 	// can't fill to filled color or to transparent color (used as visited marker)
 	if ((fillcolor == filledcolor) || (fillcolor == 255))
 	{
-		//printf( "not filling skin from %d to %d\n", fillcolor, filledcolor );
+//		Con_Warning ("Mod_FloodFillSkin: not filling skin from %d to %d\n", fillcolor, filledcolor);
+		return;
+	}
+
+	for (i = notfill = 0; i < size && notfill < 2; ++i)
+	{
+		if (skin[i] != fillcolor)
+			++notfill;
+	}
+
+	// don't fill almost mono-coloured texes
+	if (notfill < 2)
+	{
+//		Con_Warning ("Mod_FloodFillSkin: not filling skin in %s\n", loadmodel->name);
 		return;
 	}
 
@@ -1865,6 +1931,7 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	start = Hunk_LowMark ();
 
 	pinmodel = (mdl_t *)buffer;
+	mod_base = (byte *)buffer;
 
 	version = LittleLong (pinmodel->version);
 	if (version != ALIAS_VERSION)
@@ -1965,9 +2032,6 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	posenum = 0;
 	pframetype = (daliasframetype_t *)&pintriangles[pheader->numtris];
 
-//	mins[0] = mins[1] = mins[2] = 32768;
-//	maxs[0] = maxs[1] = maxs[2] = -32768;
-
 	for (i=0 ; i<numframes ; i++)
 	{
 		aliasframetype_t	frametype;
@@ -1978,29 +2042,13 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 			pframetype = (daliasframetype_t *) Mod_LoadAliasGroup (pframetype + 1, &pheader->frames[i]);
 	}
 
-	//Con_Printf("Model is %s\n",mod->name);
-	//Con_Printf("   Mins is %5.2f, %5.2f, %5.2f\n",mins[0],mins[1],mins[2]);
-	//Con_Printf("   Maxs is %5.2f, %5.2f, %5.2f\n",maxs[0],maxs[1],maxs[2]);
-
 	pheader->numposes = posenum;
 
 	mod->type = mod_alias;
 
-//	Mod_SetExtraFlags (mod); // set up extra flags (WARNING this is break special transparency model flags)
 	
 	Mod_CalcAliasBounds (pheader); // calc correct bounds
 
-/*
-// FIXME: do this right
-//	mod->mins[0] = mod->mins[1] = mod->mins[2] = -16;
-//	mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 16;
-	mod->mins[0] = mins[0] - 10;
-	mod->mins[1] = mins[1] - 10;
-	mod->mins[2] = mins[2] - 10;
-	mod->maxs[0] = maxs[0] + 10;
-	mod->maxs[1] = maxs[1] + 10;
-	mod->maxs[2] = maxs[2] + 10;
-*/
 	//
 	// build the draw lists
 	//
@@ -2143,9 +2191,6 @@ void Mod_LoadAliasModelNew (model_t *mod, void *buffer)
 	posenum = 0;
 	pframetype = (daliasframetype_t *)&pintriangles[pheader->numtris];
 
-//	mins[0] = mins[1] = mins[2] = 32768;
-//	maxs[0] = maxs[1] = maxs[2] = -32768;
-
 	for (i=0 ; i<numframes ; i++)
 	{
 		aliasframetype_t	frametype;
@@ -2156,29 +2201,12 @@ void Mod_LoadAliasModelNew (model_t *mod, void *buffer)
 			pframetype = (daliasframetype_t *) Mod_LoadAliasGroup (pframetype + 1, &pheader->frames[i]);
 	}
 
-	//Con_Printf("Model is %s\n",mod->name);
-	//Con_Printf("   Mins is %5.2f, %5.2f, %5.2f\n",mins[0],mins[1],mins[2]);
-	//Con_Printf("   Maxs is %5.2f, %5.2f, %5.2f\n",maxs[0],maxs[1],maxs[2]);
-
 	pheader->numposes = posenum;
 
 	mod->type = mod_alias;
 
-//	Mod_SetExtraFlags (mod); // set up extra flags (WARNING this is break special transparency model flags)
 	
 	Mod_CalcAliasBounds (pheader); // calc correct bounds
-
-/*
-// FIXME: do this right
-//	mod->mins[0] = mod->mins[1] = mod->mins[2] = -16;
-//	mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 16;
-	mod->mins[0] = mins[0] - 10;
-	mod->mins[1] = mins[1] - 10;
-	mod->mins[2] = mins[2] - 10;
-	mod->maxs[0] = maxs[0] + 10;
-	mod->maxs[1] = maxs[1] + 10;
-	mod->maxs[2] = maxs[2] + 10;
-*/
 
 	//
 	// build the draw lists
@@ -2238,8 +2266,7 @@ void *Mod_LoadSpriteFrame (void *pin, mspriteframe_t **ppframe, int framenum)
 	pspriteframe->left = origin[0];
 	pspriteframe->right = width + origin[0];
 
-//	sprintf (name, "%s_%i", loadmodel->name, framenum);
-//	pspriteframe->gltexture = GL_LoadTexture (name, width, height, (byte *)(pinframe + 1), false, true, 0);//mipmap was true
+
 
 	sprintf (name, "%s:frame%i", loadmodel->name, framenum);
 	offset = (unsigned)(pinframe+1) - (unsigned)mod_base; //johnfitz

@@ -639,7 +639,7 @@ crosses a waterline.
 int		fatbytes;
 byte	fatpvs[MAX_MAP_LEAFS/8];
 
-void SV_AddToFatPVS (vec3_t org, mnode_t *node)
+void SV_AddToFatPVS (vec3_t org, mnode_t *node, model_t *worldmodel)
 {
 	int		i;
 	byte	*pvs;
@@ -653,7 +653,7 @@ void SV_AddToFatPVS (vec3_t org, mnode_t *node)
 		{
 			if (node->contents != CONTENTS_SOLID)
 			{
-				pvs = Mod_LeafPVS ( (mleaf_t *)node, sv.worldmodel);
+				pvs = Mod_LeafPVS ( (mleaf_t *)node, worldmodel);
 				for (i=0 ; i<fatbytes ; i++)
 					fatpvs[i] |= pvs[i];
 			}
@@ -668,7 +668,7 @@ void SV_AddToFatPVS (vec3_t org, mnode_t *node)
 			node = node->children[1];
 		else
 		{	// go down both
-			SV_AddToFatPVS (org, node->children[0]);
+			SV_AddToFatPVS (org, node->children[0], worldmodel);
 			node = node->children[1];
 		}
 	}
@@ -682,11 +682,11 @@ Calculates a PVS that is the inclusive or of all leafs within 8 pixels of the
 given point.
 =============
 */
-byte *SV_FatPVS (vec3_t org)
+byte *SV_FatPVS (vec3_t org, model_t *worldmodel)
 {
-	fatbytes = (sv.worldmodel->numleafs+31)>>3;
+	fatbytes = (worldmodel->numleafs+31)>>3;
 	memset (fatpvs, 0, fatbytes);
-	SV_AddToFatPVS (org, sv.worldmodel->nodes);
+	SV_AddToFatPVS (org, worldmodel->nodes, worldmodel);
 	return fatpvs;
 }
 
@@ -797,7 +797,7 @@ void SV_PrepareClientEntities (client_t *client, edict_t	*clent, sizebuf_t *msg)
 	else
 		VectorAdd (clent->v.origin, clent->v.view_ofs, org);
 
-	pvs = SV_FatPVS (org);
+	pvs = SV_FatPVS (org, sv.worldmodel);
 
 	// send over all entities (excpet the client) that touch the pvs
 	ent = NEXT_EDICT(sv.edicts);

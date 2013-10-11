@@ -207,12 +207,13 @@ typedef struct mleaf_s
 
 typedef struct
 {
-	dclipnode_t	*clipnodes;
+	mclipnode_t	*clipnodes; //johnfitz -- was dclipnode_t
 	mplane_t	*planes;
 	int			firstclipnode;
 	int			lastclipnode;
 	vec3_t		clip_mins;
 	vec3_t		clip_maxs;
+	int			available;
 } hull_t;
 
 
@@ -463,7 +464,7 @@ typedef struct model_s
 	int			*surfedges;
 
 	int			numclipnodes;
-	dclipnode_t	*clipnodes;
+	mclipnode_t	*clipnodes; //johnfitz -- was dclipnode_t
 
 	int			nummarksurfaces;
 	msurface_t	**marksurfaces;
