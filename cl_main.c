@@ -497,13 +497,13 @@ void CL_RelinkEntities (void)
 	int			i, j;
 	float		frac, f, d;
 	vec3_t		delta;
-	//float		bobjrotate;
+	float		objrotate;
 	vec3_t		oldorg;
 	dlight_t	*dl;
-	int c;
+//	int c;
 	static int lastc = 0;
 
-	c = 0;
+//	c = 0;
 // determine partial update time	
 	frac = CL_LerpPoint ();
 
@@ -530,7 +530,9 @@ void CL_RelinkEntities (void)
 		}
 	}
 	
-	//bobjrotate = anglemod(100*(cl.time+ent->origin[0]+ent->origin[1]));
+	//objrotate = anglemod(100*cl.time); //q1
+	//objrotate = anglemod(100*(cl.time+ent->origin[0]+ent->origin[1]));
+	//objrotate = anglemod((ent->origin[0]+ent->origin[1])*0.8+(108*cl.time)); // from R_RotateForEntity2
 	
 // start on the entity after the world
 	for (i=1,ent=cl_entities+1 ; i<cl.num_entities ; i++,ent++)
@@ -583,8 +585,17 @@ void CL_RelinkEntities (void)
 			
 		}
 
-		c++;
+	//objrotate = anglemod(100*cl.time);
+	//objrotate = anglemod(100*(cl.time+ent->origin[0]+ent->origin[1]));
+	objrotate = anglemod((ent->origin[0]+ent->origin[1])*0.8+(108*cl.time)); // from R_RotateForEntity2
 
+//		c++; //wtf?
+
+// rotate binary objects locally
+		if (ent->model->flags & EF_ROTATE)
+			ent->angles[1] = objrotate;
+
+			
 		if (ent->effects & EF_DARKFIELD)
 			R_DarkFieldParticles (ent);
 
