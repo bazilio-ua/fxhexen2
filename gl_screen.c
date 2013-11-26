@@ -78,7 +78,7 @@ int			scr_copyeverything;
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
-float		oldscreensize, oldfov;
+float		oldscreensize, oldfov, oldsbar, oldoverdrawsbar, oldweaponsize, oldweaponfov;
 cvar_t		scr_viewsize = {"viewsize","100", true};
 cvar_t		scr_fov = {"fov","90"};	// 10 - 170
 cvar_t		scr_conspeed = {"scr_conspeed","300"};
@@ -1218,6 +1218,13 @@ void SCR_UpdateScreen (void)
 //
 // determine size of refresh window
 //
+
+	if (oldfov != scr_fov.value)
+	{
+		oldfov = scr_fov.value;
+		vid.recalc_refdef = true;
+	}
+
 	if (vid.recalc_refdef)
 		SCR_CalcRefdef ();
 
