@@ -34,7 +34,7 @@ mplane_t	frustum[4];
 
 int			rs_c_brush_polys, rs_c_brush_passes, rs_c_alias_polys, rs_c_alias_passes, rs_c_sky_polys, rs_c_sky_passes;
 int			rs_c_dynamic_lightmaps, rs_c_particles;
-qboolean	envmap;				// true during envmap command capture 
+//qboolean	envmap;				// true during envmap command capture 
 
 gltexture_t			*particletexture;	// little dot for particles
 gltexture_t *playertextures[MAX_SCOREBOARD]; // changed to an array of pointers
@@ -732,8 +732,8 @@ void R_DrawAliasModel (entity_t *e)
 	//
 	glPushMatrix ();
 
-//	GL_DrawEntityTransform (lerpdata); // FX
-	R_RotateForEntity2(e);
+	GL_DrawEntityTransform (lerpdata); // FX
+//	R_RotateForEntity2(e);
 //	R_RotateForEntity(e);
 
 	// special handling of view model to keep FOV from altering look.
@@ -1817,6 +1817,7 @@ void R_SetupEntityTransform (entity_t *e, lerpdata_t *lerpdata)
 		VectorCopy (e->angles,  e->currentangles);
 	}
 
+
 	// set up values
 	if (e != &cl.viewent && e->lerpflags & LERP_MOVESTEP)
 	{
@@ -1831,20 +1832,71 @@ void R_SetupEntityTransform (entity_t *e, lerpdata_t *lerpdata)
 		lerpdata->origin[1] = e->previousorigin[1] + d[1] * blend;
 		lerpdata->origin[2] = e->previousorigin[2] + d[2] * blend;
 
-		// orientation interpolation (rotation)
-		VectorSubtract (e->currentangles, e->previousangles, d);
-
-		// always interpolate along the shortest path
-		for (i = 0; i < 3; i++)
+		if (e->model->flags & EF_FACE_VIEW)
 		{
-			if (d[i] > 180)
-				d[i] -= 360;
-			else if (d[i] < -180)
-				d[i] += 360;
+			float	forward, yaw, pitch;
+
+			// orientation interpolation (rotation)
+			VectorSubtract (e->currentangles, e->previousangles, d);
+			// always interpolate along the shortest path
+/*			for (i = 0; i < 3; i++)
+			{
+				if (d[i] > 180)
+					d[i] -= 360;
+				else if (d[i] < -180)
+					d[i] += 360;
+			} */
+			
+			if (d[1] == 0 && d[0] == 0)
+			{
+				yaw = 0;
+				if (d[2] > 0)
+					pitch = 90;
+				else
+					pitch = 270;
+			}
+			else
+			{
+				yaw = (int) (atan2(d[1], d[0]) * 180 / M_PI);
+				if (yaw < 0)
+					yaw += 360;
+	
+				forward = sqrt (d[0]*d[0] + d[1]*d[1]);
+				pitch = (int) (atan2(d[2], forward) * 180 / M_PI);
+				if (pitch < 0)
+					pitch += 360;
+			}
+	
+			d[0] = pitch;
+			d[1] = yaw;
+			d[2] = 0;
+
+			
+			lerpdata->angles[0] = e->previousangles[0] + d[0] * blend;
+			lerpdata->angles[1] = e->previousangles[1] + d[1] * blend;
+			lerpdata->angles[2] = e->previousangles[2] + d[2] * blend;
 		}
-		lerpdata->angles[0] = e->previousangles[0] + d[0] * blend;
-		lerpdata->angles[1] = e->previousangles[1] + d[1] * blend;
-		lerpdata->angles[2] = e->previousangles[2] + d[2] * blend;
+		else
+		{
+			// orientation interpolation (rotation)
+			VectorSubtract (e->currentangles, e->previousangles, d);
+			// always interpolate along the shortest path
+			for (i = 0; i < 3; i++)
+			{
+				if (d[i] > 180)
+					d[i] -= 360;
+				else if (d[i] < -180)
+					d[i] += 360;
+			}
+			lerpdata->angles[0] = e->previousangles[0] + d[0] * blend;
+			
+			if (e->model->flags & EF_ROTATE)
+				lerpdata->angles[1] = e->previousangles[1] + /* d[1] */anglemod((e->previousorigin[0]+e->previousorigin[1])*0.8+(108*cl.time))  * blend;
+			else
+				lerpdata->angles[1] = e->previousangles[1] + d[1] * blend;
+			
+			lerpdata->angles[2] = e->previousangles[2] + d[2] * blend;
+		}
 	}
 	else // don't lerp
 	{

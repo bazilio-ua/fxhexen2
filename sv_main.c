@@ -949,7 +949,7 @@ skipA:
 		}
 			
 		if (ent->v.movetype == MOVETYPE_STEP)
-			bits |= U_NOLERP;	// don't mess up the step animation
+			bits |= U_STEP;	// don't mess up the step animation
 	
 		if (ref_ent->colormap != ent->v.colormap)
 		{

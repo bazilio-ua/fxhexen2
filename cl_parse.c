@@ -120,6 +120,7 @@ entity_t	*CL_EntityNum (int num)
 		while (cl.num_entities<=num)
 		{
 			cl_entities[cl.num_entities].colormap = 0; //vid.colormap;
+			cl_entities[cl.num_entities].lerpflags |= LERP_RESETMOVE|LERP_RESETANIM; //johnfitz
 			cl.num_entities++;
 		}
 	}
@@ -512,30 +513,7 @@ void CL_ParseUpdate (int bits)
 	}
 	else
 		modnum = ref_ent->modelindex;
-		
-	model = cl.model_precache[modnum];
-	set_ent->modelindex = modnum;
-	if (model != ent->model)
-	{
-		ent->model = model;
-
-	// automatic animation (torches, etc) can be either all together
-	// or randomized
-		if (model)
-		{
-			if (model->synctype == ST_RAND)
-				ent->syncbase = rand()*(1.0/RAND_MAX);//(float)(rand()&0x7fff) / 0x7fff;
-			else
-				ent->syncbase = 0.0;
-		}
-		else
-			forcelink = true;	// hack to make null model players work
-
-		if (num > 0 && num <= cl.maxclients)
-			R_TranslatePlayerSkin (num - 1);
-
-	}
-	
+			
 	if (bits & U_FRAME)
 		set_ent->frame = ent->frame = MSG_ReadByte (net_message);
 	else
@@ -639,8 +617,40 @@ void CL_ParseUpdate (int bits)
 		ent->abslight = ref_ent->abslight;
 	}
 
-	if ( bits & U_NOLERP )
+	//johnfitz -- lerping for movetype_step entities
+	if ( bits & U_STEP )
+	{
+		ent->lerpflags |= LERP_MOVESTEP;
 		ent->forcelink = true;
+	}
+	else
+		ent->lerpflags &= ~LERP_MOVESTEP;
+	//johnfitz
+
+
+	//johnfitz -- moved here from above (because the model num could be changed by extend bits)
+	model = cl.model_precache[modnum];
+	set_ent->modelindex = modnum;
+	if (model != ent->model)
+	{
+		ent->model = model;
+
+	// automatic animation (torches, etc) can be either all together
+	// or randomized
+		if (model)
+		{
+			if (model->synctype == ST_RAND)
+				ent->syncbase = rand()*(1.0/RAND_MAX);//(float)(rand()&0x7fff) / 0x7fff;
+			else
+				ent->syncbase = 0.0;
+		}
+		else
+			forcelink = true;	// hack to make null model players work
+
+		if (num > 0 && num <= cl.maxclients)
+			R_TranslatePlayerSkin (num - 1);
+
+	}
 
 	if ( forcelink )
 	{	// didn't have an update last message
