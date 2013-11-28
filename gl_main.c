@@ -736,15 +736,90 @@ void R_DrawAliasModel (entity_t *e)
 //	R_RotateForEntity2(e);
 //	R_RotateForEntity(e);
 
+	if(e->scale != 0 && e->scale != 100)
+	{
+		entScale = (float)e->scale/100.0;
+		switch(e->drawflags & SCALE_TYPE_MASKIN)
+		{
+			case SCALE_TYPE_UNIFORM:
+				tmatrix[0][0] = paliashdr->scale[0]*entScale;
+				tmatrix[1][1] = paliashdr->scale[1]*entScale;
+				tmatrix[2][2] = paliashdr->scale[2]*entScale;
+				xyfact = zfact = (entScale-1.0)*127.95;
+				break;
+			case SCALE_TYPE_XYONLY:
+				tmatrix[0][0] = paliashdr->scale[0]*entScale;
+				tmatrix[1][1] = paliashdr->scale[1]*entScale;
+				tmatrix[2][2] = paliashdr->scale[2];
+				xyfact = (entScale-1.0)*127.95;
+				zfact = 1.0;
+				break;
+			case SCALE_TYPE_ZONLY:
+				tmatrix[0][0] = paliashdr->scale[0];
+				tmatrix[1][1] = paliashdr->scale[1];
+				tmatrix[2][2] = paliashdr->scale[2]*entScale;
+				xyfact = 1.0;
+				zfact = (entScale-1.0)*127.95;
+				break;
+		}
+		switch(e->drawflags & SCALE_ORIGIN_MASKIN)
+		{
+			case SCALE_ORIGIN_CENTER:
+				tmatrix[0][3] = paliashdr->scale_origin[0]-paliashdr->scale[0]*xyfact;
+				tmatrix[1][3] = paliashdr->scale_origin[1]-paliashdr->scale[1]*xyfact;
+				tmatrix[2][3] = paliashdr->scale_origin[2]-paliashdr->scale[2]*zfact;
+				break;
+			case SCALE_ORIGIN_BOTTOM:
+				tmatrix[0][3] = paliashdr->scale_origin[0]-paliashdr->scale[0]*xyfact;
+				tmatrix[1][3] = paliashdr->scale_origin[1]-paliashdr->scale[1]*xyfact;
+				tmatrix[2][3] = paliashdr->scale_origin[2];
+				break;
+			case SCALE_ORIGIN_TOP:
+				tmatrix[0][3] = paliashdr->scale_origin[0]-paliashdr->scale[0]*xyfact;
+				tmatrix[1][3] = paliashdr->scale_origin[1]-paliashdr->scale[1]*xyfact;
+				tmatrix[2][3] = paliashdr->scale_origin[2]-paliashdr->scale[2]*zfact*2.0;
+				break;
+		}
+	}
+	else
+	{
+		tmatrix[0][0] = paliashdr->scale[0];
+		tmatrix[1][1] = paliashdr->scale[1];
+		tmatrix[2][2] = paliashdr->scale[2];
+		tmatrix[0][3] = paliashdr->scale_origin[0];
+		tmatrix[1][3] = paliashdr->scale_origin[1];
+		tmatrix[2][3] = paliashdr->scale_origin[2];
+	}
+
+	if(clmodel->flags & EF_ROTATE)
+	{ // Floating motion
+//		tmatrix[2][3] += sin(currententity->origin[0]
+//			+currententity->origin[1]+(cl.time*3))*5.5; // fixme: should use lerpdata->origin
+
+		tmatrix[2][3] += sin(lerpdata.origin[0]+lerpdata.origin[1]+(cl.time*3))*5.5; // fixme: should use lerpdata->origin
+	}
+
+// [0][3] [1][3] [2][3]
+//	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
+	glTranslatef (tmatrix[0][3],tmatrix[1][3],tmatrix[2][3]);
+// [0][0] [1][1] [2][2]
+//	glScalef (paliashdr->scale[0], paliashdr->scale[1], paliashdr->scale[2]);
+	glScalef (tmatrix[0][0],tmatrix[1][1],tmatrix[2][2]);
+
+
 	// special handling of view model to keep FOV from altering look.
+//FX
 /*	if (e == &cl.viewent)
 		scale = 1.0f / tan( DEG2RAD (r_fovx / 2.0f) ) * scr_weaponfov.value / 90.0f; // reverse out fov and do fov we want
-	else	*/
+	else
 		scale = 1.0f;
 
 	glTranslatef (paliashdr->scale_origin[0] * scale, paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
 	glScalef (paliashdr->scale[0] * scale, paliashdr->scale[1], paliashdr->scale[2]);
+*/
+
 /*
+//orig.
 	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
 	glScalef (paliashdr->scale[0], paliashdr->scale[1], paliashdr->scale[2]);
 */

@@ -1923,6 +1923,7 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 		Sys_Error ("%s has wrong version number (%i should be %i)",
 				 mod->name, version, ALIAS_VERSION);
 
+//	Con_Printf("Loading OLD id model %s\n",mod->name);
 //
 // allocate space for a working header, plus all the data except the frames,
 // skin and group info
@@ -1933,6 +1934,9 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	pheader = Hunk_AllocName (size, loadname);
 	
 	mod->flags = LittleLong (pinmodel->flags);
+	
+	if (mod->flags & EF_FACE_VIEW)
+		Con_Printf ("model %s has EF_FACE_VIEW flag\n", mod->name);
 
 //
 // endian-adjust and copy the data, starting with the alias model header
@@ -2082,7 +2086,7 @@ void Mod_LoadAliasModelNew (model_t *mod, void *buffer)
 		Sys_Error ("%s has wrong version number (%i should be %i)",
 				 mod->name, version, ALIAS_NEWVERSION);
 
-//	Con_Printf("Loading NEW model %s\n",mod->name);
+//	Con_Printf("Loading NEW raven model %s\n",mod->name);
 //
 // allocate space for a working header, plus all the data except the frames,
 // skin and group info
@@ -2093,6 +2097,9 @@ void Mod_LoadAliasModelNew (model_t *mod, void *buffer)
 	pheader = Hunk_AllocName (size, loadname);
 	
 	mod->flags = LittleLong (pinmodel->flags);
+
+	if (mod->flags & EF_FACE_VIEW)
+		Con_Printf ("model %s has EF_FACE_VIEW flag\n", mod->name);
 
 //
 // endian-adjust and copy the data, starting with the alias model header
