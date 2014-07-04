@@ -230,7 +230,7 @@ void R_DarkFieldParticles (entity_t *ent)
 		for (j=-16 ; j<16 ; j+=8)
 			for (k=0 ; k<32 ; k+=8)
 			{
-				p = R_AllocParticle();
+				p = R_AllocParticle ();
 				if (!p)
 					return;
 		
@@ -525,9 +525,7 @@ void R_RunParticleEffect4 (vec3_t org, float radius, int color, int effect, int 
 	{
 		p = R_AllocParticle ();
 		if (!p)
-		{
 			return;
-		}
 
 //		p->die = cl.time + 0.1*(rand()%5);
 		p->die = cl.time + 2;//0.1*(rand()%5);
@@ -682,12 +680,11 @@ void R_SunStaffTrail(vec3_t source, vec3_t dest)
 
 	while(length > 0)
 	{
-		length -= size;
-
-		if((p = R_AllocParticle()) == NULL)
-		{
+		p = R_AllocParticle ();
+		if (!p)
 			return;
-		}
+
+		length -= size;
 
 		p->die = cl.time+2;
 
@@ -724,7 +721,7 @@ void RiderParticle(int count, vec3_t origin)
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -764,7 +761,7 @@ void GravityWellParticle(int count, vec3_t origin, int color)
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -838,7 +835,7 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 	{
 		len -= size;
 
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 		
@@ -1058,7 +1055,7 @@ void R_RainEffect (vec3_t org, vec3_t e_size, int x_dir, int y_dir, int color, i
 	
 	for (i=0 ; i<count ; i++)
 	{
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 		
@@ -1103,7 +1100,7 @@ void R_SnowEffect (vec3_t org1,vec3_t org2,int flags,vec3_t alldir,int count)
 	count *= Cvar_VariableValue("snow_active");
 	for (i=0 ; i<count ; i++)
 	{
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 		
@@ -1162,7 +1159,6 @@ void R_SnowEffect (vec3_t org1,vec3_t org2,int flags,vec3_t alldir,int count)
 /*
 ===============
 R_ColoredParticleExplosion
-
 ===============
 */
 void R_ColoredParticleExplosion (vec3_t org,int color,int radius,int counter)
@@ -1172,7 +1168,7 @@ void R_ColoredParticleExplosion (vec3_t org,int color,int radius,int counter)
 
 	for (i=0 ; i<counter ; i++)
 	{
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -1897,7 +1893,7 @@ void R_ReadPointFile_f (void)
 			break;
 		c++;
 		
-		p = R_AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 		{
 			Con_Printf ("Not enough free particles\n");
