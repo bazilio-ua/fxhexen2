@@ -36,7 +36,6 @@ int			rs_c_brush_polys, rs_c_brush_passes, rs_c_alias_polys, rs_c_alias_passes, 
 int			rs_c_dynamic_lightmaps, rs_c_particles;
 qboolean	envmap;				// true during envmap command capture 
 
-gltexture_t			*particletexture;	// little dot for particles
 gltexture_t *playertextures[MAX_SCOREBOARD]; // changed to an array of pointers
 gltexture_t			*gl_extra_textures[MAX_EXTRA_TEXTURES];   // generic textures for models
 

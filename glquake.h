@@ -265,7 +265,6 @@ void R_AnimateLight (void);
 extern	int texture_extension_number;
 extern	int		texture_mode;
 
-void R_InitParticleTexture (void);
 
 #define MAX_EXTRA_TEXTURES 156   // 255-100+1
 extern gltexture_t			*gl_extra_textures[MAX_EXTRA_TEXTURES];   // generic textures for models
@@ -476,7 +475,7 @@ extern	int		gl_alpha_format;
 extern	gltexture_t *notexture;
 extern	gltexture_t *nulltexture;
 
-extern	gltexture_t	*particletexture;
+extern	gltexture_t *particletexture;
 extern	gltexture_t *particletexture1;
 extern	gltexture_t *particletexture2;
 

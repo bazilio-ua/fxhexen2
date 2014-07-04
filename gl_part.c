@@ -17,8 +17,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+// gl_part.c
 
 #include "quakedef.h"
+
+#define MAX_PARTICLES			16384 // was 7000	// default max # of particles at one time
 
 #define	SFL_FLUFFY			1	// All largish flakes
 #define	SFL_MIXED			2	// Mixed flakes
@@ -26,14 +29,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	SFL_NO_MELT			8	// Flakes don't melt when his surface, just go away
 #define	SFL_IN_BOUNDS		16	// Flakes cannot leave the bounds of their box
 #define	SFL_NO_TRANS		32	// All flakes start non-translucent
-#define SFL_64	64
-#define SFL_128	128
-
-
-#define MAX_PARTICLES			7000	// default max # of particles at one
-										//  time
-#define ABSOLUTE_MIN_PARTICLES	512		// no fewer than this no matter what's
-										//  on the command line
+#define SFL_64				64
+#define SFL_128				128
 
 int		ramp1[8] = { 416,416+2,416+4,416+6,416+8,416+10,416+12,416+14};
 int		ramp2[8] = { 384+4,384+6,384+8,384+10,384+12,384+13,384+14,384+15};
@@ -42,22 +39,18 @@ int		ramp4[16] = { 416,416+1,416+2,416+3,416+4,416+5,416+6,416+7,416+8,416+9,416
 int		ramp5[16] = { 400,400+1,400+2,400+3,400+4,400+5,400+6,400+7,400+8,400+9,400+10,400+11,400+12,400+13,400+14,400+15};
 int		ramp6[16] = { 256,256+1,256+2,256+3,256+4,256+5,256+6,256+7,256+8,256+9,256+10,256+11,256+12,256+13,256+14,256+15};
 int		ramp7[16] = { 384,384+1,384+2,384+3,384+4,384+5,384+6,384+7,384+8,384+9,384+10,384+11,384+12,384+13,384+14,384+15};
-int     ramp8[16] = {175, 174, 173, 172, 171, 170, 169, 168, 167, 166, 13, 14, 15, 16, 17, 18};
+int		ramp8[16] = {175, 174, 173, 172, 171, 170, 169, 168, 167, 166, 13, 14, 15, 16, 17, 18};
 //int		ramp9[16] = { 272,272+1,272+2,272+3,272+4,272+5,272+6,272+7,272+8,272+9,272+10,272+11,272+12,272+13,272+14,272+15};
 int		ramp9[16] = { 416,416+1,416+2,416+3,416+4,416+5,416+6,416+7,416+8,416+9,416+10,416+11,416+12,416+13,416+14,416+15};
 int		ramp10[16] = { 432,432+1,432+2,432+3,432+4,432+5,432+6,432+7,432+8,432+9,432+10,432+11,432+12,432+13,432+14,432+15};
 int		ramp11[8] = { 424,424+1,424+2,424+3,424+4,424+5,424+6,424+7};
 int		ramp12[8] = { 136,137,138,139,140,141,142,143};
-byte *transTable;
-byte MyTable[256];
 
-particle_t	*active_particles, *free_particles;
+particle_t	*active_particles, *free_particles, *particles;
 
-particle_t	*particles;
-int			r_numparticles;
+int				r_numparticles;
 
 float			texturescalefactor; // compensate for apparent size of different particle textures
-
 
 static vec3_t		rider_origin;
 
@@ -67,9 +60,6 @@ cvar_t		snow_flurry= {"snow_flurry","1", true};
 cvar_t		snow_active= {"snow_active","1", true};
 
 cvar_t	r_particles = {"r_particles","1",true};
-
-static particle_t *AllocParticle(void);
-
 
 /*
 ===============
@@ -97,12 +87,12 @@ int R_ParticleTextureLookup (int x, int y, int sharpness)
 R_InitParticleTextures
 ===============
 */
-void R_InitParticleTexture (void)
+void R_InitParticleTextures (void)
 {
 	int		x,y;
-	byte	particle1_data[64*64*4];
+	static byte	particle1_data[64*64*4];
+	static byte	particle2_data[2*2*4];
 	byte			*dst;
-//	char name[64];
 
 	//
 	// particle texture 1 - circle
@@ -118,17 +108,49 @@ void R_InitParticleTexture (void)
 			*dst++ = R_ParticleTextureLookup(x, y, 8);
 		}
 	}
-	
+	particletexture1 = GL_LoadTexture (NULL, "particle1", 64, 64, SRC_RGBA, particle1_data, "", (unsigned)particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
 
-	particletexture = GL_LoadTexture (NULL, "particle", 64, 64, SRC_RGBA, particle1_data, "", (unsigned)particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
+	//
+	// particle texture 2 - square
+	//
+	dst = particle2_data;
+	for (x=0 ; x<2 ; x++)
+	{
+		for (y=0 ; y<2 ; y++)
+		{
+			*dst++ = 255;
+			*dst++ = 255;
+			*dst++ = 255;
+			*dst++ = x || y ? 0 : 255;
+		}
+	}
+	particletexture2 = GL_LoadTexture (NULL, "particle2", 2, 2, SRC_RGBA, particle2_data, "", (unsigned)particle2_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_NEAREST);
 
-
-
+	// set default
+	particletexture = particletexture1;
 	texturescalefactor = 1.25;
-//	texturescalefactor = 1.0;
 }
 
-
+/*
+===============
+R_Particles -- johnfitz
+===============
+*/
+void R_Particles (void)
+{
+	switch ((int)(r_particles.value))
+	{
+	default:
+	case 1:
+		particletexture = particletexture1;
+		texturescalefactor = 1.25;
+		break;
+	case 2:
+		particletexture = particletexture2;
+		texturescalefactor = 1.0;
+		break;
+	}
+}
 
 /*
 ===============
@@ -137,23 +159,7 @@ R_InitParticles
 */
 void R_InitParticles (void)
 {
-	int		i;
-	FILE	*f;
-
-	i = COM_CheckParm ("-particles");
-
-	MyTable[0] = 254;
-
-	if (i)
-	{
-		r_numparticles = (int)(atoi(com_argv[i+1]));
-		if (r_numparticles < ABSOLUTE_MIN_PARTICLES)
-			r_numparticles = ABSOLUTE_MIN_PARTICLES;
-	}
-	else
-	{
-		r_numparticles = MAX_PARTICLES;
-	}
+	r_numparticles = MAX_PARTICLES;
 
 	particles = (particle_t *)
 			Hunk_AllocName (r_numparticles * sizeof(particle_t), "particles");
@@ -163,22 +169,52 @@ void R_InitParticles (void)
 	//JFM: snow test
 	Cvar_RegisterVariable (&snow_flurry, NULL);
 	Cvar_RegisterVariable (&snow_active, NULL);
+	
+	Cvar_RegisterVariable (&r_particles, R_Particles);
 
-        transTable = Hunk_AllocName(65536, "transtable");
-//	transTable = (byte *)malloc(65536);
-//	if (!transTable)
-//		Sys_Error ("Couldn't load gfx/tinttab.lmp");
-
-	COM_FOpenFile ("gfx/tinttab.lmp", &f, NULL);
-
-	if (f)
-	{
-		fread(transTable,1,65536,f);
-		fclose(f);
-	}
-
+	R_InitParticleTextures ();
 }
 
+/*
+===============
+R_ClearParticles
+===============
+*/
+void R_ClearParticles (void)
+{
+	int		i;
+	
+	free_particles = &particles[0];
+	active_particles = NULL;
+
+	for (i=0 ;i<r_numparticles ; i++)
+		particles[i].next = &particles[i+1];
+	particles[r_numparticles-1].next = NULL;
+}
+
+/*
+===============
+R_AllocParticle
+===============
+*/
+static inline particle_t *R_AllocParticle (void)
+{
+	particle_t *p;
+
+	if (!free_particles)
+		return NULL;
+	p = free_particles;
+	free_particles = p->next;
+	p->next = active_particles;
+	active_particles = p;
+	return p;
+}
+
+/*
+===============
+R_DarkFieldParticles
+===============
+*/
 void R_DarkFieldParticles (entity_t *ent)
 {
 	int			i, j, k;
@@ -194,7 +230,7 @@ void R_DarkFieldParticles (entity_t *ent)
 		for (j=-16 ; j<16 ; j+=8)
 			for (k=0 ; k<32 ; k+=8)
 			{
-				p = AllocParticle();
+				p = R_AllocParticle();
 				if (!p)
 					return;
 		
@@ -216,48 +252,6 @@ void R_DarkFieldParticles (entity_t *ent)
 			}
 }
 
-//==========================================================================
-//
-// AllocParticle
-//
-//==========================================================================
-
-static particle_t *AllocParticle(void)
-{
-	particle_t *p;
-
-	if(!free_particles)
-	{
-		return NULL;
-	}
-	p = free_particles;
-	free_particles = p->next;
-	p->next = active_particles;
-	active_particles = p;
-	return p;
-}
-
-
-/*
-===============
-R_ClearParticles
-===============
-*/
-void R_ClearParticles (void)
-{
-	int		i;
-	
-	free_particles = &particles[0];
-	active_particles = NULL;
-
-	if (!r_numparticles)
-		return;
-	for (i=0 ;i<r_numparticles ; i++)
-		particles[i].next = &particles[i+1];
-	particles[r_numparticles-1].next = NULL;
-}
-
-
 
 /*
 ===============
@@ -278,11 +272,11 @@ void R_ParseParticleEffect (void)
 	msgcount = MSG_ReadByte (net_message);
 	color = MSG_ReadByte (net_message);
 
-if (msgcount == 255)
-	count = 1024;
-else
-	count = msgcount;
-	
+	if (msgcount == 255)
+		count = 1024;
+	else
+		count = msgcount;
+
 	R_RunParticleEffect (org, dir, color, count);
 }
 
@@ -360,7 +354,6 @@ void R_ParseParticleEffect4 (void)
 /*
 ===============
 R_ParticleExplosion
-
 ===============
 */
 void R_ParticleExplosion (vec3_t org)
@@ -370,7 +363,7 @@ void R_ParticleExplosion (vec3_t org)
 	
 	for (i=0 ; i<1024 ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -398,12 +391,9 @@ void R_ParticleExplosion (vec3_t org)
 	}
 }
 
-
-
 /*
 ===============
 R_RunParticleEffect
-
 ===============
 */
 void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
@@ -413,7 +403,7 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 	
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -457,12 +447,9 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 	}
 }
 
-
-
 /*
 ===============
 R_RunParticleEffect2
-
 ===============
 */
 void R_RunParticleEffect2 (vec3_t org, vec3_t dmin, vec3_t dmax, int color, int effect, int count)
@@ -473,7 +460,7 @@ void R_RunParticleEffect2 (vec3_t org, vec3_t dmin, vec3_t dmax, int color, int 
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -495,7 +482,6 @@ void R_RunParticleEffect2 (vec3_t org, vec3_t dmin, vec3_t dmax, int color, int 
 /*
 ===============
 R_RunParticleEffect3
-
 ===============
 */
 void R_RunParticleEffect3 (vec3_t org, vec3_t box, int color, int effect, int count)
@@ -506,7 +492,7 @@ void R_RunParticleEffect3 (vec3_t org, vec3_t box, int color, int effect, int co
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -527,7 +513,6 @@ void R_RunParticleEffect3 (vec3_t org, vec3_t box, int color, int effect, int co
 /*
 ===============
 R_RunParticleEffect4
-
 ===============
 */
 void R_RunParticleEffect4 (vec3_t org, float radius, int color, int effect, int count)
@@ -538,7 +523,7 @@ void R_RunParticleEffect4 (vec3_t org, float radius, int color, int effect, int 
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 		{
 			return;
@@ -562,7 +547,6 @@ void R_RunParticleEffect4 (vec3_t org, float radius, int color, int effect, int 
 /*
 ===============
 R_LavaSplash
-
 ===============
 */
 void R_LavaSplash (vec3_t org)
@@ -576,7 +560,7 @@ void R_LavaSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j++)
 			for (k=0 ; k<1 ; k++)
 			{
-				p = AllocParticle();
+				p = R_AllocParticle ();
 				if (!p)
 					return;
 		
@@ -601,7 +585,6 @@ void R_LavaSplash (vec3_t org)
 /*
 ===============
 R_TeleportSplash
-
 ===============
 */
 void R_TeleportSplash (vec3_t org)
@@ -615,7 +598,7 @@ void R_TeleportSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j+=4)
 			for (k=-24 ; k<32 ; k+=4)
 			{
-				p = AllocParticle();
+				p = R_AllocParticle ();
 				if (!p)
 					return;
 		
@@ -640,7 +623,6 @@ void R_TeleportSplash (vec3_t org)
 /*
 ===============
 R_RunQuakeEffect
-
 ===============
 */
 void R_RunQuakeEffect (vec3_t org, float distance)
@@ -651,7 +633,7 @@ void R_RunQuakeEffect (vec3_t org, float distance)
 
 	for (i=0 ; i<100 ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle ();
 		if (!p)
 			return;
 
@@ -678,12 +660,11 @@ void R_RunQuakeEffect (vec3_t org, float distance)
 	}
 }
 
-//==========================================================================
-//
-// R_SunStaffTrail
-//
-//==========================================================================
-
+/*
+===============
+R_SunStaffTrail
+===============
+*/
 void R_SunStaffTrail(vec3_t source, vec3_t dest)
 {
 	int i;
@@ -703,7 +684,7 @@ void R_SunStaffTrail(vec3_t source, vec3_t dest)
 	{
 		length -= size;
 
-		if((p = AllocParticle()) == NULL)
+		if((p = R_AllocParticle()) == NULL)
 		{
 			return;
 		}
@@ -728,6 +709,11 @@ void R_SunStaffTrail(vec3_t source, vec3_t dest)
 	}
 }
 
+/*
+===============
+RiderParticle
+===============
+*/
 void RiderParticle(int count, vec3_t origin)
 {
 	int			i;
@@ -738,7 +724,7 @@ void RiderParticle(int count, vec3_t origin)
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 
@@ -763,6 +749,11 @@ void RiderParticle(int count, vec3_t origin)
 	}
 }
 
+/*
+===============
+GravityWellParticle
+===============
+*/
 void GravityWellParticle(int count, vec3_t origin, int color)
 {
 	int			i;
@@ -773,7 +764,7 @@ void GravityWellParticle(int count, vec3_t origin, int color)
 
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 
@@ -796,12 +787,12 @@ void GravityWellParticle(int count, vec3_t origin, int color)
 	}
 }
 
-//==========================================================================
-//
-// R_RocketTrail
-//
-//==========================================================================
+/*
+===============
+R_RocketTrail
 
+===============
+*/
 void R_RocketTrail (vec3_t start, vec3_t end, int type)
 {
 	vec3_t	vec, dist;
@@ -847,7 +838,7 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 	{
 		len -= size;
 
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 		
@@ -1059,7 +1050,7 @@ R_RainEffect
 
 ===============
 */
-void R_RainEffect (vec3_t org,vec3_t e_size,int x_dir, int y_dir,int color,int count)
+void R_RainEffect (vec3_t org, vec3_t e_size, int x_dir, int y_dir, int color, int count)
 {
 	int i,holdint;
 	particle_t	*p;
@@ -1067,7 +1058,7 @@ void R_RainEffect (vec3_t org,vec3_t e_size,int x_dir, int y_dir,int color,int c
 	
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 		
@@ -1112,7 +1103,7 @@ void R_SnowEffect (vec3_t org1,vec3_t org2,int flags,vec3_t alldir,int count)
 	count *= Cvar_VariableValue("snow_active");
 	for (i=0 ; i<count ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 		
@@ -1167,6 +1158,7 @@ void R_SnowEffect (vec3_t org1,vec3_t org2,int flags,vec3_t alldir,int count)
 		VectorCopy(org2,p->max_org);
 	}
 }
+
 /*
 ===============
 R_ColoredParticleExplosion
@@ -1180,7 +1172,7 @@ void R_ColoredParticleExplosion (vec3_t org,int color,int radius,int counter)
 
 	for (i=0 ; i<counter ; i++)
 	{
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 			return;
 
@@ -1210,10 +1202,13 @@ void R_ColoredParticleExplosion (vec3_t org,int color,int radius,int counter)
 }
 
 
+/*
+===============
+R_UpdateParticles
 
-extern	cvar_t	sv_gravity;
-
-
+all the particle behavior, separated from R_DrawParticles
+===============
+*/
 void R_UpdateParticles (void)
 {
 	particle_t		*p, *kill;
@@ -1759,12 +1754,11 @@ void R_UpdateParticles (void)
 }
 
 
-
 /*
 ===============
 R_DrawParticles
 
-EER1 TODO: make it short by p->type
+moved all non-drawing code to R_UpdateParticles
 ===============
 */
 void R_DrawParticles (void)
@@ -1774,8 +1768,8 @@ void R_DrawParticles (void)
 	float			scale;
 	byte			*color, alpha;
 
-//	if (!r_particles.value)
-//		return;
+	if (!r_particles.value)
+		return;
 
 	VectorScale (vup, 1.5, up);
 	VectorScale (vright, 1.5, right);
@@ -1903,7 +1897,7 @@ void R_ReadPointFile_f (void)
 			break;
 		c++;
 		
-		p = AllocParticle();
+		p = R_AllocParticle();
 		if (!p)
 		{
 			Con_Printf ("Not enough free particles\n");

@@ -269,6 +269,20 @@ typedef struct client_s
 
 //============================================================================
 
+extern	cvar_t	sv_maxvelocity;
+extern	cvar_t	sv_gravity;
+extern	cvar_t	sv_nostep;
+extern	cvar_t	sv_friction;
+extern	cvar_t	sv_edgefriction;
+extern	cvar_t	sv_stopspeed;
+extern	cvar_t	sv_maxspeed;
+extern	cvar_t	sv_accelerate;
+extern	cvar_t	sv_idealpitchscale;
+extern	cvar_t	sv_idealrollscale;
+extern	cvar_t	sv_aim;
+extern	cvar_t	sv_walkpitch;
+extern	cvar_t	sv_flypitch;
+
 extern	cvar_t	teamplay;
 extern	cvar_t	skill;
 extern	cvar_t	deathmatch;

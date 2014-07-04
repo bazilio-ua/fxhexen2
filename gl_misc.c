@@ -24,6 +24,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 texture_t	*notexture_mip; // moved here from gl_main.c 
 texture_t	*notexture_mip2; // used for non-lightmapped surfs with a missing texture
 
+gltexture_t *particletexture;	// particle texture (little dot for particles)
+gltexture_t *particletexture1;	// circle
+gltexture_t *particletexture2;	// square
+
 byte *playerTranslation;
 
 /*
@@ -57,7 +61,11 @@ unsigned ColorPercent[16] =
 	25, 51, 76, 102, 114, 127, 140, 153, 165, 178, 191, 204, 216, 229, 237, 247
 };
 
-
+/*
+===============
+R_LoadPalette
+===============
+*/
 void R_LoadPalette (void)
 {
 //	byte	*pal;
@@ -270,7 +278,6 @@ void R_Init (void)
 
 
 	R_InitParticles ();
-	R_InitParticleTexture ();
 
 	R_InitTranslatePlayerTextures ();
 
