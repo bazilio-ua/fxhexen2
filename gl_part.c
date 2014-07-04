@@ -1789,12 +1789,13 @@ void R_DrawParticles (void)
 
 	for (p=active_particles ; p ; p=p->next)
 	{
+		// hack a scale up to keep particles from disapearing
+		scale = (p->org[0] - r_origin[0])*vpn[0]
+			+ (p->org[1] - r_origin[1])*vpn[1]
+			+ (p->org[2] - r_origin[2])*vpn[2];
+
 		if (p->type==pt_rain)
 		{
-			// hack a scale up to keep particles from disapearing
-			scale = (p->org[0] - r_origin[0])*vpn[0]
-				+ (p->org[1] - r_origin[1])*vpn[1]
-				+ (p->org[2] - r_origin[2])*vpn[2];
 			if (scale < 20)
 				scale = 1 + 0.08; // added .08 to be consistent
 			else
@@ -1803,41 +1804,9 @@ void R_DrawParticles (void)
 			scale /= 2.0; // quad is half the size of triangle 
 			//scale *= texturescalefactor; // compensate for apparent size of different particle textures
 			scale *= 1.0; // compensate for apparent size of different particle textures
-
-			// particle fade out
-			if (p->color <= 255)
-			{
-				color = (byte *)&d_8to24table[(int)p->color]; // fix gcc warnings
-				alpha = 255; // reserved for alpha
-				glColor4ub (color[0], color[1], color[2], alpha);
-			}
-			else
-			{
-				color = (byte *)&d_8to24TranslucentTable[(int)p->color-256]; // fix gcc warnings
-				glColor4ubv (color);
-			}
-
-			glTexCoord2f (0,0);
-			glVertex3fv (p->org);
-	
-			glTexCoord2f (0.5,0);
-			VectorMA (p->org, scale, up, p_up);
-			glVertex3fv (p_up);
-	
-			glTexCoord2f (0.5,0.5);
-			VectorMA (p_up, scale, right, p_upright);
-			glVertex3fv (p_upright);
-	
-			glTexCoord2f (0,0.5);
-			VectorMA (p->org, scale, right, p_right);
-			glVertex3fv (p_right);
 		}
 		else if (p->type==pt_snow)
 		{
-			// hack a scale up to keep particles from disapearing
-			scale = (p->org[0] - r_origin[0])*vpn[0]
-				+ (p->org[1] - r_origin[1])*vpn[1]
-				+ (p->org[2] - r_origin[2])*vpn[2];
 			if (scale < 20)
 				scale = p->count/10 + 0.08; // added .08 to be consistent	
 			else
@@ -1852,43 +1821,10 @@ void R_DrawParticles (void)
 			else if(p->count>=30)
 				scale *= 2.0;
 			else
-				//default scale
-				scale *= 1.0;
-
-			// particle fade out
-			if (p->color <= 255)
-			{
-				color = (byte *)&d_8to24table[(int)p->color]; // fix gcc warnings
-				alpha = 255; // reserved for alpha
-				glColor4ub (color[0], color[1], color[2], alpha);
-			}
-			else
-			{
-				color = (byte *)&d_8to24TranslucentTable[(int)p->color-256]; // fix gcc warnings
-				glColor4ubv (color);
-			}
-
-			glTexCoord2f (0,0); //orig.
-			glVertex3fv (p->org);
-
-			glTexCoord2f (0.5,0); //orig.
-			VectorMA (p->org, scale, up, p_up);
-			glVertex3fv (p_up);
-
-			glTexCoord2f (0.5,0.5); //orig.
-			VectorMA (p_up, scale, right, p_upright);
-			glVertex3fv (p_upright);
-
-			glTexCoord2f (0,0.5); //orig.
-			VectorMA (p->org, scale, right, p_right);
-			glVertex3fv (p_right);
+				scale *= 1.0; // default scale
 		}
 		else
 		{
-			// hack a scale up to keep particles from disapearing
-			scale = (p->org[0] - r_origin[0])*vpn[0]
-				+ (p->org[1] - r_origin[1])*vpn[1]
-				+ (p->org[2] - r_origin[2])*vpn[2];
 			if (scale < 20)
 				scale = 1 + 0.08; // added .08 to be consistent
 			else
@@ -1899,35 +1835,35 @@ void R_DrawParticles (void)
 				scale *= 1.0; // compensate for apparent size of different particle textures
 			else
 				scale *= texturescalefactor; // compensate for apparent size of different particle textures
-
-			// particle fade out
-			if (p->color <= 255)
-			{
-				color = (byte *)&d_8to24table[(int)p->color]; // fix gcc warnings
-				alpha = 255; // reserved for alpha
-				glColor4ub (color[0], color[1], color[2], alpha);
-			}
-			else
-			{
-				color = (byte *)&d_8to24TranslucentTable[(int)p->color-256]; // fix gcc warnings
-				glColor4ubv (color);
-			}
-
-			glTexCoord2f (0,0);
-			glVertex3fv (p->org);
-	
-			glTexCoord2f (0.5,0);
-			VectorMA (p->org, scale, up, p_up);
-			glVertex3fv (p_up);
-	
-			glTexCoord2f (0.5,0.5);
-			VectorMA (p_up, scale, right, p_upright);
-			glVertex3fv (p_upright);
-	
-			glTexCoord2f (0,0.5);
-			VectorMA (p->org, scale, right, p_right);
-			glVertex3fv (p_right);
 		}
+
+		// particle fade out
+		if (p->color <= 255)
+		{
+			color = (byte *)&d_8to24table[(int)p->color]; // fix gcc warnings
+			alpha = 255; // reserved for alpha
+			glColor4ub (color[0], color[1], color[2], alpha);
+		}
+		else
+		{
+			color = (byte *)&d_8to24TranslucentTable[(int)p->color-256]; // fix gcc warnings
+			glColor4ubv (color);
+		}
+
+		glTexCoord2f (0,0);
+		glVertex3fv (p->org);
+
+		glTexCoord2f (0.5,0);
+		VectorMA (p->org, scale, up, p_up);
+		glVertex3fv (p_up);
+
+		glTexCoord2f (0.5,0.5);
+		VectorMA (p_up, scale, right, p_upright);
+		glVertex3fv (p_upright);
+
+		glTexCoord2f (0,0.5);
+		VectorMA (p->org, scale, right, p_right);
+		glVertex3fv (p_right);
 	}
 
 	glEnd ();

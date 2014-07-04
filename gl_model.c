@@ -362,7 +362,7 @@ qboolean IsFullbright (byte *pixels, int size)
 	int	i;
 
 	for (i=0 ; i<size ; i++)
-		if (pixels[i] > 237)
+		if (pixels[i] > 237) //hexen2 palette specific
 			return true;
 
 	return false;
